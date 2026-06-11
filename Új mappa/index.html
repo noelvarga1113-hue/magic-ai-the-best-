@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="hu">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Magic AI 🪄 – Saját fejlesztésű AI</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+  <!-- animált háttér -->
+  <div class="aurora" aria-hidden="true">
+    <span class="blob b1"></span>
+    <span class="blob b2"></span>
+    <span class="blob b3"></span>
+  </div>
+
+  <div class="app">
+
+    <!-- FEJLÉC -->
+    <header class="header">
+      <div class="logo">🪄</div>
+      <div class="header-texts">
+        <h1>Magic AI</h1>
+        <div class="status"><span class="dot"></span> Online – teljesen helyben fut, API nélkül</div>
+      </div>
+      <div class="stats">
+        <div><b id="stat-kb">0</b><br>beépített minta</div>
+        <div><b id="stat-learned">0</b><br>tanult tudás</div>
+      </div>
+      <button id="theme-toggle" title="Világos / sötét mód">
+        <span class="moon">🌙</span><span class="sun">☀️</span>
+      </button>
+    </header>
+
+    <!-- FÜLEK -->
+    <nav class="tabs">
+      <button class="tab-btn active" data-tab="tab-chat">💬 Beszélgetés</button>
+      <button class="tab-btn" data-tab="tab-teach">✏️ Tanítás</button>
+      <button class="tab-btn" data-tab="tab-knowledge">🧠 Tudástár</button>
+    </nav>
+
+    <!-- CHAT -->
+    <section id="tab-chat" class="tab-panel active">
+      <div id="chat-messages"></div>
+
+      <div class="suggestions">
+        <button class="chip">Mi Franciaország fővárosa?</button>
+        <button class="chip">Mennyi 25 * 4?</button>
+        <button class="chip">Mondj egy viccet!</button>
+        <button class="chip">Milyen idő van Budapesten?</button>
+        <button class="chip">Mi az a kvantumszámítógép?</button>
+        <button class="chip">Mit tudsz?</button>
+      </div>
+
+      <div class="input-bar">
+        <textarea id="chat-input" rows="1" placeholder="Írj egy üzenetet... (Enter = küldés)"></textarea>
+        <button id="send-btn" title="Küldés">➤</button>
+      </div>
+    </section>
+
+    <!-- TANÍTÁS -->
+    <section id="tab-teach" class="tab-panel">
+      <div class="panel-inner">
+        <h2>✏️ Taníts meg valamire!</h2>
+        <p class="panel-desc">
+          Írd be a kérdést és a választ, amit szeretnél, hogy tudjak.
+          A tanult tudás <strong>elsőbbséget élvez</strong> a beépített tudással szemben,
+          így a hibáimat is így javíthatod ki. Minden a böngésződben tárolódik.
+        </p>
+
+        <div class="field">
+          <label for="teach-q">Kérdés</label>
+          <input id="teach-q" type="text" placeholder="pl. Mi a kedvenc színem?">
+        </div>
+
+        <div class="field">
+          <label for="teach-a">Válasz</label>
+          <textarea id="teach-a" placeholder="pl. A kedvenc színed a kék! 💙"></textarea>
+        </div>
+
+        <button id="teach-save" class="btn-small">🧠 Megtanulom!</button>
+        <span id="teach-status" class="teach-status"></span>
+      </div>
+    </section>
+
+    <!-- TUDÁSTÁR -->
+    <section id="tab-knowledge" class="tab-panel">
+      <div class="panel-inner">
+        <h2>🧠 Tanult tudás</h2>
+        <p class="panel-desc">
+          Itt látod mindazt, amire te tanítottál. Törölhetsz belőle,
+          elmentheted fájlba, vagy visszatöltheted egy másik gépen.
+        </p>
+
+        <div class="knowledge-toolbar">
+          <input id="learned-search" type="text" placeholder="🔍 Keresés a tanult tudásban...">
+          <button id="btn-export" class="btn-small btn-ghost">📤 Exportálás</button>
+          <button id="btn-import" class="btn-small btn-ghost">📥 Importálás</button>
+          <button id="btn-clear-all" class="btn-small btn-danger">🗑️ Összes törlése</button>
+          <input id="import-file" type="file" accept=".json" hidden>
+        </div>
+
+        <div id="learned-list"></div>
+      </div>
+    </section>
+
+  </div>
+
+  <script src="knowledge.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
