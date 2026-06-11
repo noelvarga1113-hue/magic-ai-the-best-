@@ -1,0 +1,1431 @@
+// ============================================================
+//  MAGIC AI – Motor és felület
+//  Saját fejlesztésű, helyben futó AI: nincs API, nincs internet.
+// ============================================================
+
+(function () {
+  "use strict";
+
+  // ---------- SZÖVEGFELDOLGOZÁS ----------
+
+  // Kisbetűsítés, ékezetek eltávolítása, írásjelek törlése
+  function normalize(text) {
+    return text
+      .toLowerCase()
+      .normalize("NFD")
+      .replace(/[̀-ͯ]/g, "")
+      .replace(/[^a-z0-9\s]/g, " ")
+      .replace(/\s+/g, " ")
+      .trim();
+  }
+
+  function tokenize(text) {
+    return normalize(text).split(" ").filter(function (t) { return t.length > 0; });
+  }
+
+  // Levenshtein-távolság – elgépelések felismeréséhez
+  function levenshtein(a, b) {
+    if (a === b) return 0;
+    if (!a.length) return b.length;
+    if (!b.length) return a.length;
+    var prev = [], curr = [], i, j;
+    for (j = 0; j <= b.length; j++) prev[j] = j;
+    for (i = 1; i <= a.length; i++) {
+      curr[0] = i;
+      for (j = 1; j <= b.length; j++) {
+        var cost = a[i - 1] === b[j - 1] ? 0 : 1;
+        curr[j] = Math.min(prev[j] + 1, curr[j - 1] + 1, prev[j - 1] + cost);
+      }
+      var tmp = prev; prev = curr; curr = tmp;
+    }
+    return prev[b.length];
+  }
+
+  function stringSimilarity(a, b) {
+    var maxLen = Math.max(a.length, b.length);
+    if (maxLen === 0) return 1;
+    return 1 - levenshtein(a, b) / maxLen;
+  }
+
+  // Két token hasonló-e (elgépelést is tűrve)
+  function tokensAlike(t1, t2) {
+    if (t1 === t2) return 1;
+    if (t1.length >= 4 && t2.length >= 4) {
+      if (t1.indexOf(t2) === 0 || t2.indexOf(t1) === 0) return 0.85; // szótő-egyezés
+      var sim = stringSimilarity(t1, t2);
+      if (sim >= 0.75) return sim;
+    }
+    return 0;
+  }
+
+  // Töltelék- és kérdőszavak: kis súlyt kapnak az illesztésnél
+  var STOPWORDS = {
+    a: 1, az: 1, egy: 1, es: 1, is: 1, ki: 1, mi: 1, mit: 1, mik: 1,
+    hany: 1, mennyi: 1, milyen: 1, hogy: 1, hogyan: 1, van: 1, volt: 1,
+    vagy: 1, te: 1, en: 1, meg: 1, nem: 1, mire: 1, miben: 1, hol: 1,
+    mikor: 1, miert: 1, mely: 1, melyik: 1
+  };
+
+  function tokenWeight(t) {
+    return STOPWORDS[t] ? 0.25 : 1;
+  }
+
+  // Pontszám: mennyire illik a kérdés egy mintára (0..1)
+  function scoreMatch(input, pattern) {
+    var ni = normalize(input), np = normalize(pattern);
+    if (!ni || !np) return 0;
+    if (ni === np) return 1;
+
+    var ti = tokenize(input), tp = tokenize(pattern);
+
+    // Súlyozott token-átfedés
+    var hitMass = 0, patternMass = 0, contentHits = 0;
+    for (var i = 0; i < tp.length; i++) {
+      var w = tokenWeight(tp[i]);
+      patternMass += w;
+      var best = 0;
+      for (var j = 0; j < ti.length; j++) {
+        var s = tokensAlike(tp[i], ti[j]);
+        if (s > best) best = s;
+      }
+      hitMass += best * w;
+      if (best > 0 && w === 1) contentHits++;
+    }
+    var inputMass = 0;
+    for (var k = 0; k < ti.length; k++) inputMass += tokenWeight(ti[k]);
+
+    var coverPattern = patternMass > 0 ? hitMass / patternMass : 0;
+    var coverInput = inputMass > 0 ? Math.min(hitMass / inputMass, 1) : 0;
+
+    // A minta lefedettsége a fő szempont, de a kérdés lefedettsége
+    // szorzóként rontja, ha sok oda nem illő szó van a kérdésben
+    var tokenScore = coverPattern * (0.5 + 0.5 * coverInput);
+
+    // Tartalmas szóegyezés nélkül a tokenpontszám nem ér semmit.
+    // A csupa töltelékszóból álló minták (pl. "mi az mi") pedig csak
+    // pontos vagy szó szerinti egyezésnél találhatnak, különben mindenre ráillenének.
+    var patternHasContent = tp.some(function (t) { return tokenWeight(t) === 1; });
+    if (!patternHasContent || contentHits === 0) tokenScore = 0;
+
+    // A karakterszintű hasonlóság csak elgépelésekre való:
+    // csak nagyon magas egyezésnél vesszük figyelembe
+    var stringScore = stringSimilarity(ni, np);
+    var score = tokenScore;
+    if (stringScore >= 0.8) score = Math.max(score, stringScore);
+
+    // Bónusz: a minta egyben, szóhatáron szerepel a kérdésben
+    if (np.length >= 4 && (" " + ni + " ").indexOf(" " + np + " ") !== -1) {
+      score = Math.max(score, 0.92);
+    }
+
+    return score;
+  }
+
+  // ---------- TANULT TUDÁS (localStorage) ----------
+
+  var STORE_KEY = "magicai_learned_v1";
+  var THEME_KEY = "magicai_theme";
+
+  // Verziókövetés: első megnyitáskor üdvözlő üzenet az újdonságokkal
+  var APP_VERSION = "1.1";
+  var VERSION_KEY = "magicai_version_seen";
+
+  function loadLearned() {
+    try { return JSON.parse(localStorage.getItem(STORE_KEY)) || []; }
+    catch (e) { return []; }
+  }
+
+  function saveLearned(list) {
+    localStorage.setItem(STORE_KEY, JSON.stringify(list));
+    updateStats();
+    renderLearnedList();
+  }
+
+  function teach(question, answer) {
+    var list = loadLearned();
+    var nq = normalize(question);
+    // Ha már tanult ilyet, felülírjuk (javítás)
+    var existing = list.findIndex(function (e) { return normalize(e.q) === nq; });
+    var entry = { q: question.trim(), a: answer.trim(), date: new Date().toISOString(), confirmed: false };
+    if (existing !== -1) list[existing] = entry; else list.push(entry);
+    saveLearned(list);
+  }
+
+  // 👍 egy tanult válaszra: megerősítés, mostantól jobban bízik benne
+  function confirmLearned(question) {
+    var list = loadLearned();
+    var nq = normalize(question);
+    for (var i = 0; i < list.length; i++) {
+      if (normalize(list[i].q) === nq) { list[i].confirmed = true; }
+    }
+    saveLearned(list);
+  }
+
+  // ---------- KRITIKUS GONDOLKODÁS ----------
+  // Az AI nem hisz el mindent: ellenőrzi, amit tanítani akarnak neki.
+
+  var PROFANITY = /\b(kurva\w*|fasz\w*|geci\w*|picsa\w*|baszd\w*|bazd\w*|baszott|kocsog\w*|buzi\w*|rohadj\w*)\b/;
+
+  function findBuiltin(question) {
+    var best = null, bestScore = 0;
+    var kb = window.MAGIC_KB || [];
+    for (var k = 0; k < kb.length; k++) {
+      for (var p = 0; p < kb[k].q.length; p++) {
+        var s = scoreMatch(question, kb[k].q[p]);
+        if (s > bestScore) { bestScore = s; best = kb[k]; }
+      }
+    }
+    return { entry: best, score: bestScore };
+  }
+
+  // Eredmény: {verdict:"ok"} | {verdict:"refuse"} | {verdict:"conflict", builtin:"..."}
+  function vetTeaching(question, answer) {
+    if (PROFANITY.test(normalize(answer))) return { verdict: "refuse" };
+    if (normalize(answer).length < 2) return { verdict: "refuse" };
+    var hit = findBuiltin(question);
+    if (hit.entry && hit.score >= 0.7) {
+      return { verdict: "conflict", builtin: hit.entry.a[0] };
+    }
+    return { verdict: "ok" };
+  }
+
+  // ---------- DINAMIKUS KÉPESSÉGEK ----------
+
+  function tryDynamic(input) {
+    var n = normalize(input);
+
+    // Idő
+    if (/\b(mennyi az ido|hany ora|hany ora van|pontos ido|ido van)\b/.test(n)) {
+      var now = new Date();
+      return "Most " + now.toLocaleTimeString("hu-HU", { hour: "2-digit", minute: "2-digit" }) + " van. ⏰";
+    }
+
+    // Dátum
+    if (/\b(milyen nap van|mi a mai datum|hanyadika van|mai datum|milyen datum)\b/.test(n)) {
+      var d = new Date();
+      var days = ["vasárnap", "hétfő", "kedd", "szerda", "csütörtök", "péntek", "szombat"];
+      return "Ma " + d.toLocaleDateString("hu-HU", { year: "numeric", month: "long", day: "numeric" }) +
+             " van, " + days[d.getDay()] + ". 📅";
+    }
+
+    // Pénzfeldobás
+    if (/\b(fej vagy iras|dobj fel egy ermet|ermefeldobas|penzfeldobas|dobj egy ermet)\b/.test(n)) {
+      return Math.random() < 0.5 ? "Feldobtam... 🪙 **FEJ** lett!" : "Feldobtam... 🪙 **ÍRÁS** lett!";
+    }
+
+    // Kockadobás
+    if (/\b(dobj kockat|kockadobas|dobj egy kockat|gurits)\b/.test(n)) {
+      var dice = 1 + Math.floor(Math.random() * 6);
+      var faces = ["⚀", "⚁", "⚂", "⚃", "⚄", "⚅"];
+      return "Gurítottam... " + faces[dice - 1] + " **" + dice + "** lett!";
+    }
+
+    // Véletlenszám: "mondj egy számot 1 és 100 között"
+    var rndMatch = n.match(/szamot\s+(\d+)\s+es\s+(\d+)\s+kozott/) || n.match(/random\s*szam.*?(\d+).*?(\d+)/);
+    if (rndMatch) {
+      var lo = parseInt(rndMatch[1], 10), hi = parseInt(rndMatch[2], 10);
+      if (lo > hi) { var t = lo; lo = hi; hi = t; }
+      var r = lo + Math.floor(Math.random() * (hi - lo + 1));
+      return "A számom: **" + r + "** (" + lo + " és " + hi + " között) 🎲";
+    }
+    if (/\b(random szam|veletlen szam|mondj egy szamot)\b/.test(n)) {
+      return "A számom: **" + (1 + Math.floor(Math.random() * 100)) + "** (1 és 100 között) 🎲";
+    }
+
+    // Választás: "válassz: pizza vagy hamburger"
+    var chooseMatch = input.match(/v[áa]lassz[:!.\s]+(.+?)\s+vagy\s+(.+?)[?!.]*$/i);
+    if (chooseMatch) {
+      var opts = [chooseMatch[1].trim(), chooseMatch[2].trim()];
+      return "Én ezt választanám: **" + opts[Math.floor(Math.random() * 2)] + "**! 😄";
+    }
+
+    // Számolás
+    var mathResult = tryMath(input);
+    if (mathResult !== null) return mathResult;
+
+    return null;
+  }
+
+  function tryMath(input) {
+    // Kifejezés kinyerése: "mennyi 25*4?", "számold ki: 3+5", vagy csak "12*12"
+    var raw = input
+      .replace(/mennyi( az| lesz a?z?)?/i, "")
+      .replace(/sz[áa]mold ki:?/i, "")
+      .replace(/h[áa]ny( az)?/i, "")
+      .replace(/[?=]/g, "")
+      .trim();
+
+    raw = raw.replace(/,/g, ".").replace(/x/gi, "*").replace(/:/g, "/").replace(/\^/g, "**");
+
+    // Csak akkor számolunk, ha tényleg műveletnek néz ki
+    if (!/^[\d\s+\-*/().%]+$/.test(raw)) return null;
+    if (!/\d/.test(raw)) return null;
+    if (!/[+\-*/%]/.test(raw) && !/\(/.test(raw)) return null;
+
+    try {
+      var value = Function('"use strict"; return (' + raw + ");")();
+      if (typeof value !== "number" || !isFinite(value)) return null;
+      var pretty = Math.round(value * 1e10) / 1e10;
+      return "Az eredmény: **" + pretty.toLocaleString("hu-HU") + "** 🧮";
+    } catch (e) {
+      return null;
+    }
+  }
+
+  // ---------- VÁLASZKERESÉS ----------
+
+  var MATCH_THRESHOLD = 0.58;
+
+  function findAnswer(input) {
+    // 1. Dinamikus képességek
+    var dyn = tryDynamic(input);
+    if (dyn !== null) return { text: dyn, source: "dynamic", score: 1 };
+
+    var ni = normalize(input);
+
+    // 2. Tanult tudás – pontos egyezés azonnal nyer (így működik a javítás is)
+    var learned = loadLearned();
+    var bestLearned = null, bestLearnedScore = 0;
+    for (var i = 0; i < learned.length; i++) {
+      if (normalize(learned[i].q) === ni) {
+        return { text: learned[i].a, source: "learned", score: 1, entry: learned[i] };
+      }
+      var ls = scoreMatch(input, learned[i].q);
+      if (ls > bestLearnedScore) { bestLearnedScore = ls; bestLearned = learned[i]; }
+    }
+
+    // 3. Beépített tudásbázis
+    var hit = findBuiltin(input);
+    var bestKB = hit.entry, bestKBScore = hit.score;
+
+    // A tanult tudás kis előnyt kap – a felhasználó szava szent
+    if (bestLearned && bestLearnedScore + 0.08 >= bestKBScore && bestLearnedScore >= MATCH_THRESHOLD) {
+      return { text: bestLearned.a, source: "learned", score: bestLearnedScore, entry: bestLearned };
+    }
+    if (bestKB && bestKBScore >= MATCH_THRESHOLD) {
+      var answers = bestKB.a;
+      return { text: answers[Math.floor(Math.random() * answers.length)], source: "kb", score: bestKBScore };
+    }
+
+    return null; // nem tudja
+  }
+
+  var UNKNOWN_REPLIES = [
+    "Hmm, erre még nem tudom a választ. 🤔",
+    "Ezt sajnos még nem tanultam meg. 😅",
+    "Jó kérdés! De ezt még nem tudom. 🙈"
+  ];
+
+  // ---------- KÖTETLEN BESZÉLGETÉS (v1.1) ----------
+  // Rövid, beszélgetős üzenetekre ("ok", "aha", "hmm") NEM keresünk a neten,
+  // hanem természetesen válaszolunk – így folyamatos marad a beszélgetés.
+
+  var FILLER_WORDS = {};
+  ("ok oke okes oksi okszi oksa okay rendben rendicsek jo jol ja jah aha ahha uhum igen nem ne hat na najo " +
+   "mindegy talan persze hogyne ertem vilagos tudom latom szoval hm hmm hmmm haha hihi hehe lol xd wow hu huu huha " +
+   "azta ejha kiraly szuper klassz remek nagyszeru zsir franko tenyleg komoly komolyan durva erdekes jaj hoppa " +
+   "hopp oh ah eh no nos akkor most semmi sima yes yep nope ugye bizony nana tok jojo de am amugy hadd lassam vagom")
+    .split(" ").forEach(function (w) { FILLER_WORDS[w] = 1; });
+
+  var SMALLTALK_REPLIES = [
+    "Rendben! 😊 Ha kérdésed van, csak írd be bátran!",
+    "Oké! 👍 Miben segíthetek még?",
+    "Értem! 😊 Van még valami, ami érdekel?",
+    "Vettem! 🪄 Kérdezz bátran bármit – vagy kérj egy viccet! 😄",
+    "👍 Itt vagyok, ha bármi kell!",
+    "Rendicsek! 😄 Mesélj, mi jár a fejedben?",
+    "Oké-zsoké! 😜 Mit szeretnél még tudni?",
+    "😊 Szólj, ha kérdésed van – akár az időjárásról, a hírekről vagy bármi másról!"
+  ];
+
+  // Ha az üzenet minden szava töltelékszó (vagy csak emoji), az nem keresnivaló
+  function trySmallTalk(input) {
+    var n = normalize(input);
+    if (n === "") return pick(SMALLTALK_REPLIES); // pl. csak emoji érkezett
+    var ti = n.split(" ");
+    if (ti.length > 4) return null;
+    for (var i = 0; i < ti.length; i++) {
+      if (!FILLER_WORDS[ti[i]]) return null;
+    }
+    return pick(SMALLTALK_REPLIES);
+  }
+
+  // ---------- BESZÉDSTÍLUSOK ----------
+  // A válaszok hangneme átkapcsolható: gombbal vagy chat-paranccsal
+  // (pl. "beszélj viccesen", "legyél komoly", "kalóz mód")
+
+  var STYLE_KEY = "magicai_style";
+  var currentStyle = localStorage.getItem(STYLE_KEY) || "normal";
+
+  var STYLES = {
+    normal: {
+      label: "💬 Normál",
+      confirm: "Rendben, visszaváltottam normál stílusra. 💬 Kérdezz bátran!"
+    },
+    vicces: {
+      label: "😜 Vicces",
+      confirm: "Hehe, oké! 😜 Bekapcsoltam a poéngyárat! Miért fél a robot a vihartól? Mert rövidzárlatos a humora! 🤖⚡ Na, kérdezz valamit!"
+    },
+    komoly: {
+      label: "🧐 Komoly",
+      confirm: "Értettem. Mostantól komoly, tárgyilagos stílusban válaszolok. Kérem a kérdését."
+    },
+    kedves: {
+      label: "🥰 Kedves",
+      confirm: "Jaj, de örülök! 🥰 Mostantól extra kedvesen beszélek veled, drága barátom! Mit szeretnél tudni? 💜"
+    },
+    tudos: {
+      label: "🤓 Tudós",
+      confirm: "Kiváló döntés! 🤓 Mostantól tudományos precizitással fogalmazok. Várom a vizsgálandó kérdést. 📚"
+    },
+    kaloz: {
+      label: "🏴‍☠️ Kalóz",
+      confirm: "Arr! 🏴‍☠️ Mostantól úgy beszélek, mint egy igazi tengeri medve! Ezer ördög és egy hordó rum – kérdezz bátran, matróz! ⚓"
+    }
+  };
+
+  function pick(arr) { return arr[Math.floor(Math.random() * arr.length)]; }
+
+  var EMOJI_RE = /[\u{1F000}-\u{1FAFF}\u{2600}-\u{27BF}\u{2B00}-\u{2BFF}\u{FE0F}\u{200D}]/gu;
+
+  // A kész választ a kiválasztott stílusra hangolja
+  function applyStyle(text) {
+    var pre, suf;
+    switch (currentStyle) {
+      case "vicces":
+        pre = Math.random() < 0.35
+          ? pick(["Hehe! ", "Na figyelj, ez jó lesz! 😄 ", "Pillanat, felveszem a bohócorrom... 🤡 "])
+          : "";
+        suf = pick([" 😜", "\nHehe! 😄", "\n(Ugye milyen okos vagyok? Na jó, csak vicceltem... vagy mégsem? 😏)", " 🤪", "\nBa-dum-tss! 🥁"]);
+        return pre + text + suf;
+      case "komoly":
+        return text
+          .replace(EMOJI_RE, "")
+          .replace(/!+/g, ".")
+          .replace(/ {2,}/g, " ")
+          .replace(/ \./g, ".")
+          .trim();
+      case "kedves":
+        pre = Math.random() < 0.4
+          ? pick(["Drága barátom! 💜 ", "De jó, hogy ezt kérdezed! 🥰 ", "Jaj, de aranyos kérdés! 🌸 "])
+          : "";
+        suf = pick([" 💜", "\nRemélem, segítettem, kedves! 🥰", " 🌸", "\nÖlelés! 🤗"]);
+        return pre + text + suf;
+      case "tudos":
+        pre = Math.random() < 0.5
+          ? pick(["A rendelkezésemre álló ismeretek alapján: ", "Tudományos megközelítésben: ", "A tényeket áttekintve: "])
+          : "";
+        suf = pick(["\n📚 Ha mélyebben érdekel a téma, kérdezz bátran tovább!", "\n🔬 (Megjegyzés: a tudomány folyamatosan fejlődik – ahogy én is!)", " 🤓"]);
+        return pre + text + suf;
+      case "kaloz":
+        pre = Math.random() < 0.6
+          ? pick(["Arr! ", "Ezer ördög! ", "A hét tengerre mondom! ", "Hé, matróz! "])
+          : "";
+        suf = pick([" 🏴‍☠️", "\nArr, így van ez a hét tengeren! ⚓", "\nMost pedig vissza a fedélzetre! ⛵", " ☠️⚓"]);
+        return pre + text + suf;
+      default:
+        return text;
+    }
+  }
+
+  // Stílusváltó parancs felismerése a chatben
+  function parseStyleCommand(input) {
+    var n = normalize(input);
+    if (!/(beszelj|legyel|legy |valts|kapcsolj|valaszolj|stilus|mod\b|modban|modra|modot|uzemmod)/.test(n)) return null;
+    if (/vicces|humoros|poenkod|viccelodj/.test(n)) return "vicces";
+    if (/komoly|targyilagos|hivatalos/.test(n)) return "komoly";
+    if (/kedves|aranyos|baratsagos/.test(n)) return "kedves";
+    if (/tudos|tudomanyos|professzor/.test(n)) return "tudos";
+    if (/kaloz/.test(n)) return "kaloz";
+    if (/normal|alap|sima|szokasos|atlagos/.test(n)) return "normal";
+    return null;
+  }
+
+  function setStyle(style) {
+    currentStyle = style;
+    localStorage.setItem(STYLE_KEY, style);
+    document.querySelectorAll(".style-chip").forEach(function (b) {
+      b.classList.toggle("active", b.getAttribute("data-style") === style);
+    });
+  }
+
+  // ---------- INTERNETES KERESÉS (Wikipédia) ----------
+
+  function fetchWithTimeout(url, ms) {
+    var ctrl = new AbortController();
+    var timer = setTimeout(function () { ctrl.abort(); }, ms);
+    return fetch(url, { signal: ctrl.signal }).finally(function () { clearTimeout(timer); });
+  }
+
+  // Kérdőszavak lehántása, hogy jó keresőkifejezés maradjon
+  function extractTopic(input) {
+    var t = input.trim().replace(/[?!.]+$/, "").trim();
+    t = t.replace(/^(nézz utána|nezz utana|keress rá|keress ra|keresd meg|mi az a|mi az az|ki az a|ki az az)\s*:?\s*/i, "");
+    t = t.replace(/^(mi|mik|ki|kik|mit|milyen|mikor|hol|hogyan|miért|miert|mesélj|meselj|mondd el)\s+/i, "");
+    t = t.replace(/^(az|a|egy)\s+/i, "");
+    t = t.replace(/^(volt|van|jelent|található|talalhato|született|szuletett)\s+/i, "");
+    t = t.replace(/^(az|a|egy)\s+/i, "");
+    return t.trim() || input.trim();
+  }
+
+  // ---------- IDŐJÁRÁS (Open-Meteo, ingyenes, kulcs nélkül) ----------
+
+  // Felismeri az időjárás-kérdést, kinyeri a várost és a napot
+  function parseWeatherQuery(input) {
+    var n = normalize(input);
+    if (!/(idojaras|milyen ido|milyen az ido|milyen lesz az ido|hany fok|fok van|fok lesz|esik az eso|esik majd|esni fog|fog esni|lesz eso|fog az eso|havazik|havazni fog)/.test(n)) {
+      return null;
+    }
+    var day = /holnaputan/.test(n) ? 2 : (/holnap/.test(n) ? 1 : 0);
+
+    // Város: ami a kérdésből az időjárás-szavak levonása után megmarad
+    var skip = /^(milyen|az|a|ido|idojaras|van|lesz|ma|most|mostani|holnap|holnaputan|kint|kinn|kint|hany|fok|fokot|esik|eso|esot|esni|fog|havazik|havazni|ho|hava|nalunk|itt|otthon|mondd|meg|el|szerinted|es|majd|vajon|epp|eppen|akkor|oda|kerlek)$/;
+    var words = input.replace(/[?!.,;:]/g, " ").split(/\s+/).filter(Boolean);
+    var cityWords = words.filter(function (w) { return !skip.test(normalize(w)); });
+    return { city: cityWords.join(" ").trim(), day: day };
+  }
+
+  // Magyar helyragok lehántása: Budapesten → Budapest, Pécsett → Pécs
+  function cityCandidates(city) {
+    var out = [];
+    function add(c) { if (c && c.length >= 2 && out.indexOf(c) === -1) out.push(c); }
+    add(city.replace(/(ban|ben)$/i, ""));
+    add(city.replace(/(on|en|ön|ön)$/i, ""));
+    add(city.replace(/(ott|ett|ött)$/i, ""));
+    add(city.replace(/(nal|nel|nál|nél)$/i, ""));
+    add(city);
+    return out;
+  }
+
+  // wttr.in (WWO) időjárás-kód → magyar leírás + emoji
+  function wwoText(code) {
+    code = parseInt(code, 10);
+    if (code === 113) return ["derült, napos idő", "☀️"];
+    if (code === 116) return ["enyhén felhős idő", "🌤️"];
+    if (code === 119 || code === 122) return ["borult idő", "☁️"];
+    if (code === 143 || code === 248 || code === 260) return ["köd", "🌫️"];
+    if ([176, 263, 266, 281, 284, 293, 296, 353].indexOf(code) !== -1) return ["kisebb eső, záporok", "🌦️"];
+    if ([299, 302, 305, 308, 356, 359].indexOf(code) !== -1) return ["eső", "🌧️"];
+    if ([179, 182, 185, 311, 314, 317, 320, 350, 362, 365, 374, 377].indexOf(code) !== -1) return ["havas eső, ónos eső", "🌨️"];
+    if ([227, 230, 323, 326, 329, 332, 335, 338, 368, 371, 395].indexOf(code) !== -1) return ["havazás", "❄️"];
+    if ([200, 386, 389, 392].indexOf(code) !== -1) return ["zivatar", "⛈️"];
+    return ["változékony idő", "🌍"];
+  }
+
+  function getWeather(city, day) {
+    var candidates = cityCandidates(city || "Budapest");
+
+    function geocode(i) {
+      if (i >= candidates.length) return Promise.reject(new Error("nincs ilyen település"));
+      var url = "https://geocoding-api.open-meteo.com/v1/search?count=1&language=hu&format=json&name=" +
+        encodeURIComponent(candidates[i]);
+      return fetchWithTimeout(url, 8000)
+        .then(function (r) { return r.json(); })
+        .then(function (d) {
+          if (d.results && d.results.length) return d.results[0];
+          return geocode(i + 1);
+        });
+    }
+
+    return geocode(0).then(function (loc) {
+      var url = "https://wttr.in/" + loc.latitude + "," + loc.longitude + "?format=j1";
+      return fetchWithTimeout(url, 9000)
+        .then(function (r) {
+          if (!r.ok) throw new Error("időjárás-hiba");
+          return r.json();
+        })
+        .then(function (w) {
+          var name = loc.name + (loc.country ? " (" + loc.country + ")" : "");
+          var d = w.weather[day];
+          var rain = Math.max.apply(null, d.hourly.map(function (h) {
+            return parseInt(h.chanceofrain, 10) || 0;
+          }));
+          if (day === 0) {
+            var cur = w.current_condition[0];
+            var wm = wwoText(cur.weatherCode);
+            return wm[1] + " **" + name + "** – most " + wm[0] + ", **" +
+              cur.temp_C + " °C** (hőérzet: " + cur.FeelsLikeC + " °C).\n" +
+              "💨 Szél: " + cur.windspeedKmph + " km/h • 💧 Páratartalom: " + cur.humidity + "%\n" +
+              "Ma várható: " + d.mintempC + "–" + d.maxtempC + " °C, csapadékesély: " + rain + "%.";
+          }
+          // holnap/holnapután: a déli óra kódja jellemzi a napot
+          var wmd = wwoText((d.hourly[4] || d.hourly[0]).weatherCode);
+          var label = day === 1 ? "Holnap" : "Holnapután";
+          return wmd[1] + " " + label + " **" + name + "** környékén " + wmd[0] +
+            " várható, " + d.mintempC + "–" + d.maxtempC + " °C, a csapadék esélye " + rain + "%.";
+        });
+    });
+  }
+
+  function searchWikipedia(query, lang) {
+    lang = lang || "hu";
+    var base = "https://" + lang + ".wikipedia.org";
+    var topic = extractTopic(query);
+    var title;
+    var api = base + "/w/api.php?action=query&list=search&format=json&origin=*&srlimit=1&srsearch=" +
+      encodeURIComponent(topic);
+    return fetchWithTimeout(api, 8000)
+      .then(function (r) { return r.json(); })
+      .then(function (d) {
+        var hits = d.query && d.query.search;
+        if (!hits || !hits.length) throw new Error("nincs találat");
+        title = hits[0].title;
+        return fetchWithTimeout(
+          base + "/api/rest_v1/page/summary/" + encodeURIComponent(title), 8000);
+      })
+      .then(function (r) {
+        if (!r.ok) throw new Error("nincs összefoglaló");
+        return r.json();
+      })
+      .then(function (s) {
+        var text = s.extract || "";
+        if (!text || s.type === "disambiguation") throw new Error("nincs kivonat");
+        if (text.length > 550) text = text.slice(0, 550).replace(/\s+\S*$/, "") + "…";
+        var url = (s.content_urls && s.content_urls.desktop && s.content_urls.desktop.page) ||
+          base + "/wiki/" + encodeURIComponent(title);
+        return { title: s.title || title, text: text, url: url };
+      });
+  }
+
+  // CORS-proxyk olyan forrásokhoz, amelyek nem engedik a böngészős lekérést.
+  // Ha az egyik proxy nem elérhető, a következővel próbálkozunk.
+  var CORS_PROXIES = [
+    function (u) { return "https://corsproxy.io/?url=" + encodeURIComponent(u); },
+    function (u) { return "https://api.allorigins.win/raw?url=" + encodeURIComponent(u); }
+  ];
+
+  function fetchViaProxy(url, ms) {
+    function attempt(i) {
+      if (i >= CORS_PROXIES.length) return Promise.reject(new Error("nincs elérhető proxy"));
+      return fetchWithTimeout(CORS_PROXIES[i](url), ms)
+        .then(function (r) {
+          if (!r.ok) throw new Error("proxy-hiba");
+          return r;
+        })
+        .catch(function () { return attempt(i + 1); });
+    }
+    return attempt(0);
+  }
+
+  // DuckDuckGo azonnali válasz – második lexikon-forrás
+  function searchDuckDuckGo(query) {
+    var topic = extractTopic(query);
+    var url = "https://api.duckduckgo.com/?format=json&no_html=1&skip_disambig=1&q=" +
+      encodeURIComponent(topic);
+    return fetchViaProxy(url, 8000)
+      .then(function (r) { return r.json(); })
+      .then(function (d) {
+        var text = d.AbstractText || d.Definition || "";
+        if (!text && d.RelatedTopics && d.RelatedTopics.length && d.RelatedTopics[0].Text) {
+          text = d.RelatedTopics[0].Text;
+        }
+        if (!text) throw new Error("nincs találat");
+        if (text.length > 550) text = text.slice(0, 550).replace(/\s+\S*$/, "") + "…";
+        return {
+          title: d.Heading || topic,
+          text: text,
+          url: d.AbstractURL || "https://duckduckgo.com/?q=" + encodeURIComponent(topic)
+        };
+      });
+  }
+
+  // ---------- HÍREK, CIKKEK (Google News RSS) ----------
+
+  // Hír-kérés felismerése + téma kinyerése ("hírek a fociról" → "foci")
+  function parseNewsQuery(input) {
+    var n = normalize(input);
+    if (!/(\bhirek\b|\bhirt\b|\bhireket\b|friss hirek|legujabb hirek|legfrissebb hirek|napi hirek|mi tortent ma|mi tortent a vilagban|mit irnak|\bcikkek\b|\bcikket\b|\bcikkeket\b)/.test(n)) {
+      return null;
+    }
+    var skip = /^(mi|mik|a|az|egy|mai|ma|friss|frissek|legfrissebb|legujabb|napi|hir|hirek|hirt|hireket|hirei|cikk|cikkek|cikket|cikkeket|mit|irnak|irtak|tortent|vilagban|mondj|mutass|mutasd|olvass|fel|keress|nezz|utana|van|vannak|errol|arrol|rola|nekem|valami|valamit|kerlek|szerinted|most|legyen|szivesen)$/;
+    var words = input.replace(/[?!.,;:]/g, " ").split(/\s+/).filter(Boolean);
+    var topicWords = words.filter(function (w) { return !skip.test(normalize(w)); });
+    var topic = topicWords.map(function (w) {
+      return w.length >= 6 ? w.replace(/(ról|ről|rol|röl)$/i, "") : w;
+    }).join(" ").trim();
+    return { topic: topic };
+  }
+
+  // Friss cikkek lekérése (a Google News RSS-t CORS-proxyn át olvassuk)
+  function fetchNews(topic) {
+    var rss = topic
+      ? "https://news.google.com/rss/search?q=" + encodeURIComponent(topic) + "&hl=hu&gl=HU&ceid=HU:hu"
+      : "https://news.google.com/rss?hl=hu&gl=HU&ceid=HU:hu";
+
+    return fetchViaProxy(rss, 10000).then(function (r) { return r.text(); }).then(function (xml) {
+      var doc = new DOMParser().parseFromString(xml, "text/xml");
+      var items = Array.prototype.slice.call(doc.querySelectorAll("item"), 0, 4);
+      if (!items.length) throw new Error("nincs hír");
+      return items.map(function (it) {
+        var get = function (tag) {
+          var el = it.querySelector(tag);
+          return el ? el.textContent.trim() : "";
+        };
+        return { title: get("title"), link: get("link"), source: get("source") };
+      });
+    });
+  }
+
+  function newsList(items) {
+    return items.map(function (it, i) {
+      var src = it.source ? " (" + it.source + ")" : "";
+      return (i + 1) + ". **" + it.title + "**" + src;
+    }).join("\n");
+  }
+
+  function newsLinks(items) {
+    return items.map(function (it, i) {
+      return { label: "📄 " + (i + 1) + ". cikk", url: it.link };
+    });
+  }
+
+  // ---------- WEBOLDAL-AJÁNLÓ (v1.1) ----------
+  // "Milyen weboldalon találok recepteket?" → a témával foglalkozó
+  // oldalak linkjeit küldjük el, kategóriánként összeválogatva.
+
+  var WEBSITE_DIR = [
+    { re: /videojatek|\bjatek|gamel|jatssz/, name: "játékok", sites: [
+      { label: "🎮 Steam", url: "https://store.steampowered.com", desc: "a legnagyobb PC-s játékáruház" },
+      { label: "🕹️ Poki", url: "https://poki.com/hu", desc: "ingyenes böngészős játékok letöltés nélkül" },
+      { label: "🎁 Epic Games", url: "https://store.epicgames.com/hu", desc: "hetente ingyen adnak játékokat" } ] },
+    { re: /recept|fozes|fozni|sutes|sutemeny|\betel|gasztro/, name: "receptek, főzés", sites: [
+      { label: "🍳 Nosalty", url: "https://www.nosalty.hu", desc: "több tízezer magyar recept, hozzávalók szerint is kereshetsz" },
+      { label: "🍲 Mindmegette", url: "https://www.mindmegette.hu", desc: "receptek, konyhai tippek, heti menük" },
+      { label: "👨‍🍳 Street Kitchen", url: "https://streetkitchen.hu", desc: "modern receptek videókkal" } ] },
+    { re: /\bvideo|videot|videok/, name: "videók", sites: [
+      { label: "▶️ YouTube", url: "https://www.youtube.com", desc: "a világ legnagyobb videómegosztója" },
+      { label: "🎬 Videa", url: "https://videa.hu", desc: "magyar videómegosztó" } ] },
+    { re: /\bfilm|sorozat|mozi|netflix/, name: "filmek, sorozatok", sites: [
+      { label: "🎬 Netflix", url: "https://www.netflix.com/hu", desc: "filmek és sorozatok előfizetéssel" },
+      { label: "⭐ IMDb", url: "https://www.imdb.com", desc: "filmadatbázis értékelésekkel – itt nézd meg, mi éri meg" },
+      { label: "🎞️ Port.hu", url: "https://port.hu", desc: "magyar műsorújság, mozi- és TV-műsor" } ] },
+    { re: /\bzene|zenet|zenek|\bdal|szamokat hallgat|koncert/, name: "zene", sites: [
+      { label: "🎵 Spotify", url: "https://open.spotify.com", desc: "zenestreamelés, lejátszási listák" },
+      { label: "🎧 YouTube Music", url: "https://music.youtube.com", desc: "a YouTube zenei oldala" },
+      { label: "🎶 Deezer", url: "https://www.deezer.com/hu", desc: "zenestreamelés, magyarul is" } ] },
+    { re: /\bhir\b|\bhirek|hireket|hirportal|ujsag/, name: "hírek", sites: [
+      { label: "📰 Telex", url: "https://telex.hu", desc: "friss magyar hírek" },
+      { label: "📰 Index", url: "https://index.hu", desc: "az egyik legolvasottabb magyar hírportál" },
+      { label: "📰 24.hu", url: "https://24.hu", desc: "hírek, tudomány, kultúra" },
+      { label: "📰 HVG", url: "https://hvg.hu", desc: "gazdasági és közéleti hírek" } ] },
+    { re: /idojaras|elorejelzes/, name: "időjárás", sites: [
+      { label: "⛅ Időkép", url: "https://www.idokep.hu", desc: "a legnépszerűbb magyar időjárás-oldal, élő kamerákkal" },
+      { label: "🌦️ met.hu", url: "https://www.met.hu", desc: "a hivatalos magyar meteorológiai szolgálat" } ] },
+    { re: /terkep|utvonal|navigaci/, name: "térkép, útvonaltervezés", sites: [
+      { label: "🗺️ Google Térkép", url: "https://maps.google.com", desc: "térkép, útvonaltervező, forgalmi adatok" },
+      { label: "🚗 Waze", url: "https://www.waze.com/hu/live-map", desc: "közösségi navigáció, dugók elkerülése" } ] },
+    { re: /menetrend|vonat|\bbusz|\bbkk\b|\bmav\b/, name: "menetrendek, utazástervezés", sites: [
+      { label: "🚆 MÁV", url: "https://jegy.mav.hu", desc: "vonatjegy és menetrend" },
+      { label: "🚌 BKK Futár", url: "https://futar.bkk.hu", desc: "budapesti tömegközlekedés élőben" },
+      { label: "🚍 Volánbusz", url: "https://www.volanbusz.hu", desc: "távolsági buszok menetrendje" } ] },
+    { re: /tanul|lecke|erettsegi|kurzus|tananyag|oktat/, name: "tanulás", sites: [
+      { label: "🎓 Khan Academy", url: "https://hu.khanacademy.org", desc: "ingyenes oktatóvideók magyarul, matektól a történelemig" },
+      { label: "🦉 Duolingo", url: "https://www.duolingo.com", desc: "ingyenes, játékos nyelvtanulás" },
+      { label: "📚 Wikipédia", url: "https://hu.wikipedia.org", desc: "a szabad enciklopédia" } ] },
+    { re: /programoz|kodol|webfejleszt|python|javascript/, name: "programozás", sites: [
+      { label: "💻 W3Schools", url: "https://www.w3schools.com", desc: "kezdőbarát webfejlesztési leckék" },
+      { label: "🆓 freeCodeCamp", url: "https://www.freecodecamp.org", desc: "ingyenes, teljes programozó-tanfolyamok" },
+      { label: "❓ Stack Overflow", url: "https://stackoverflow.com", desc: "itt kapsz választ a programozási kérdésekre" },
+      { label: "🐙 GitHub", url: "https://github.com", desc: "nyílt forráskódú projektek otthona" } ] },
+    { re: /vasarol|vasarlas|webshop|webaruhaz|rendelj?ek|\bolcso|arosszehasonlit|\barak\b/, name: "vásárlás", sites: [
+      { label: "🔍 Árukereső", url: "https://www.arukereso.hu", desc: "árösszehasonlítás magyar boltok között" },
+      { label: "🛒 eMAG", url: "https://www.emag.hu", desc: "az egyik legnagyobb magyar webáruház" },
+      { label: "📦 Alza", url: "https://www.alza.hu", desc: "elektronikai webáruház" } ] },
+    { re: /hasznalt|aprohirdetes|turkal/, name: "használt cikkek, apróhirdetések", sites: [
+      { label: "🤝 Jófogás", url: "https://www.jofogas.hu", desc: "a legnagyobb magyar apróhirdetési oldal" },
+      { label: "🏷️ Vatera", url: "https://www.vatera.hu", desc: "aukciók és fix áras hirdetések" },
+      { label: "🛍️ Facebook Marketplace", url: "https://www.facebook.com/marketplace", desc: "helyi adok-veszek" } ] },
+    { re: /\ballas|allast|munkat keres|munkahely/, name: "álláskeresés", sites: [
+      { label: "💼 Profession.hu", url: "https://www.profession.hu", desc: "a legnagyobb magyar állásportál" },
+      { label: "👔 LinkedIn", url: "https://www.linkedin.com/jobs", desc: "nemzetközi karrieroldal és állások" } ] },
+    { re: /ingatlan|alberlet|lakast|\blakas\b/, name: "ingatlan, albérlet", sites: [
+      { label: "🏠 ingatlan.com", url: "https://ingatlan.com", desc: "a legnagyobb magyar ingatlanhirdetési oldal" },
+      { label: "🔑 Albérlet.hu", url: "https://www.alberlet.hu", desc: "kiadó lakások, albérletek" } ] },
+    { re: /utaz|nyaral|szallas|hotel|repulojegy|repjegy/, name: "utazás, szállás", sites: [
+      { label: "🏨 Szallas.hu", url: "https://szallas.hu", desc: "belföldi szállások, akciók" },
+      { label: "🌍 Booking.com", url: "https://www.booking.com", desc: "szállásfoglalás világszerte" },
+      { label: "✈️ Skyscanner", url: "https://www.skyscanner.hu", desc: "olcsó repülőjegyek keresése" } ] },
+    { re: /fordit|szotar|angolul|nemetul/, name: "fordítás, szótár", sites: [
+      { label: "🌐 Google Fordító", url: "https://translate.google.com", desc: "gyors fordítás több mint 100 nyelven" },
+      { label: "🤖 DeepL", url: "https://www.deepl.com/translator", desc: "a legtermészetesebb gépi fordító" },
+      { label: "📖 SZTAKI Szótár", url: "https://szotar.sztaki.hu", desc: "klasszikus magyar online szótár" } ] },
+    { re: /\bkonyv|ekonyv|olvasnivalo|regeny/, name: "könyvek, olvasás", sites: [
+      { label: "📚 Moly.hu", url: "https://moly.hu", desc: "magyar könyves közösség, értékelések, ajánlók" },
+      { label: "🏛️ MEK", url: "https://mek.oszk.hu", desc: "Magyar Elektronikus Könyvtár – több ezer ingyenes e-könyv" },
+      { label: "🛒 Libri", url: "https://www.libri.hu", desc: "könyvvásárlás online" } ] },
+    { re: /\bkep\b|kepet|kepek|\bfoto|hatterkep/, name: "képek, fotók", sites: [
+      { label: "📷 Unsplash", url: "https://unsplash.com", desc: "ingyenes, profi minőségű fotók" },
+      { label: "🖼️ Pixabay", url: "https://pixabay.com/hu", desc: "ingyenes képek, illusztrációk, magyarul is" },
+      { label: "📸 Pexels", url: "https://www.pexels.com/hu-hu", desc: "ingyenes stockfotók és videók" } ] },
+    { re: /mesterseges intelligencia|\bai\b|chatbot|chatgpt|claude/, name: "mesterséges intelligencia", sites: [
+      { label: "🤖 Claude", url: "https://claude.ai", desc: "az Anthropic AI-asszisztense" },
+      { label: "💬 ChatGPT", url: "https://chatgpt.com", desc: "az OpenAI chatbotja" },
+      { label: "✨ Gemini", url: "https://gemini.google.com", desc: "a Google AI-asszisztense" } ] },
+    { re: /egeszseg|betegseg|tunet|gyogyszer|orvos/, name: "egészség", sites: [
+      { label: "🩺 WEBBeteg", url: "https://www.webbeteg.hu", desc: "orvosok által írt egészségügyi cikkek" },
+      { label: "💊 Házipatika", url: "https://www.hazipatika.com", desc: "betegségek, gyógyszerek, tünetek" },
+      { label: "❤️ EgészségKalauz", url: "https://www.egeszsegkalauz.hu", desc: "egészségügyi hírek és tanácsok" } ] },
+    { re: /\bauto\b|autot|autokat|\bkocsi/, name: "autók", sites: [
+      { label: "🚗 Használtautó.hu", url: "https://www.hasznaltauto.hu", desc: "a legnagyobb magyar autóhirdetési oldal" },
+      { label: "🏁 Totalcar", url: "https://totalcar.hu", desc: "autós hírek, tesztek" } ] },
+    { re: /arfolyam|reszveny|befektet|tozsde|penzugy/, name: "pénzügyek", sites: [
+      { label: "📈 Portfolio", url: "https://www.portfolio.hu", desc: "gazdasági és pénzügyi hírek" },
+      { label: "🏦 MNB árfolyamok", url: "https://www.mnb.hu/arfolyamok", desc: "hivatalos devizaárfolyamok" } ] },
+    { re: /\bsport|\bfoci|meccs|bajnoksag/, name: "sport", sites: [
+      { label: "⚽ Nemzeti Sport", url: "https://www.nemzetisport.hu", desc: "magyar sporthírek" },
+      { label: "🏆 Eurosport", url: "https://www.eurosport.hu", desc: "nemzetközi sporthírek, eredmények" },
+      { label: "📺 M4 Sport", url: "https://m4sport.hu", desc: "élő sportközvetítések" } ] },
+    { re: /lexikon|enciklopedia/, name: "lexikon, enciklopédia", sites: [
+      { label: "📚 Wikipédia", url: "https://hu.wikipedia.org", desc: "a szabad enciklopédia magyarul" } ] }
+  ];
+
+  // Weboldal-kérdés felismerése + válasz összeállítása
+  function parseWebsiteQuery(input) {
+    var n = normalize(input);
+    var siteWord = /(weboldal|webold|honlap|webhely|website|\boldalon\b|\boldalakon\b|\boldalt\b|\boldalak\b|\boldal\b)/.test(n);
+    var askWord = /(milyen|melyik|\bmely\b|\bhol\b|honnan|ajanlj|ajanlasz|ajanlanal|mondj|mutass|keressek|tudok|talalok|talalhatok|nezhetek|erdemes|legjobb)/.test(n);
+    var netWhere = /(\bneten\b|\binterneten\b|\bonline\b)/.test(n) &&
+                   /(\bhol\b|honnan|talalok|talalhatok|keressek|tudok|nezhetek)/.test(n);
+    if (!((siteWord && askWord) || netWhere)) return null;
+
+    // Téma kinyerése: a kérdő- és weboldal-szavak elhagyása után maradó szavak
+    var skip = /^(mi|mik|mit|milyen|melyik|mely|hol|honnan|hogyan|weboldalon|weboldalakon|weboldalakat|weboldalt|weboldalak|weboldal|honlapon|honlapokon|honlapok|honlapot|honlap|webhelyen|webhelyek|webhely|website|oldalon|oldalakon|oldalakat|oldalt|oldalak|oldal|neten|interneten|online|net|internet|talalok|talalhatok|talalhato|talalni|talal|keressek|keresek|keress|nezzek|nezhetek|nezni|tudok|tudnek|lehet|vannak|van|jo|jok|jot|legjobb|legjobbak|ajanlj|ajanlasz|ajanlanal|ajanlott|mondj|mutass|nekem|ami|amik|amely|amelyek|amelyik|foglalkozik|foglalkoznak|errol|arrol|rola|szol|szolnak|temaban|temaval|tema|a|az|egy|es|vagy|ilyen|olyan|ahol|sok|par|nehany|kerlek|szerinted|esetleg|erdemes)$/;
+    var words = input.replace(/[?!.,;:]/g, " ").split(/\s+/).filter(Boolean);
+    var topicWords = words.filter(function (w) { return !skip.test(normalize(w)); });
+    var topic = topicWords.map(function (w) {
+      return w.length >= 6 ? w.replace(/(ról|ről|rol|röl|hoz|hez|höz)$/i, "") : w;
+    }).join(" ").trim();
+
+    // Van ilyen kategóriánk? → kész oldalgyűjtemény
+    for (var i = 0; i < WEBSITE_DIR.length; i++) {
+      var cat = WEBSITE_DIR[i];
+      if (cat.re.test(n)) {
+        var body = "Ezeket az oldalakat ajánlom, ha **" + cat.name + "** témában keresel: 🔗\n\n" +
+          cat.sites.map(function (s) {
+            return "• **" + s.label.replace(/^\S+\s*/, "") + "** – " + s.desc;
+          }).join("\n") +
+          "\n\nAlul a linkekre kattintva egyből meg is nyithatod őket!";
+        return {
+          intro: body,
+          links: cat.sites.map(function (s) { return { label: s.label, url: s.url }; })
+        };
+      }
+    }
+
+    // Nincs ilyen kategória: előkészített keresőlinkeket adunk a témához
+    var qq = encodeURIComponent(topic || extractTopic(input));
+    return {
+      intro: "Erre a témára" + (topic ? " (**" + topic + "**)" : "") +
+        " nincs külön oldalgyűjteményem, de ezekkel a keresőkkel biztosan megtalálod a vele foglalkozó weboldalakat. Előkészítettem neked a keresést – csak kattints az alábbi linkekre! 🔍",
+      links: [
+        { label: "🔍 Google-keresés", url: "https://www.google.com/search?q=" + qq },
+        { label: "🦆 DuckDuckGo-keresés", url: "https://duckduckgo.com/?q=" + qq },
+        { label: "🔎 Bing-keresés", url: "https://www.bing.com/search?q=" + qq },
+        { label: "📚 Wikipédia-keresés", url: "https://hu.wikipedia.org/w/index.php?search=" + qq }
+      ]
+    };
+  }
+
+  // ---------- MAGIC ISLAND ----------
+  // Kis állapotjelző "sziget" a képernyő tetején (mint a Xiaomi Hyper Island):
+  // megmutatja, épp mit csinál az AI – gondolkozik, keres a neten stb.
+
+  var ISLAND_KEY = "magicai_island";
+  var islandEnabled = localStorage.getItem(ISLAND_KEY) !== "0"; // alapból bekapcsolva
+  var islandEl = null, islandTimer = null;
+
+  function islandShow(icon, msg) {
+    if (!islandEnabled || !islandEl) return;
+    clearTimeout(islandTimer);
+    islandEl.querySelector(".mi-icon").textContent = icon;
+    islandEl.querySelector(".mi-text").textContent = msg;
+    islandEl.classList.add("show");
+  }
+
+  function islandHide() {
+    clearTimeout(islandTimer);
+    if (islandEl) islandEl.classList.remove("show");
+  }
+
+  // Rövid üzenet, ami magától eltűnik (pl. "Megvan!")
+  function islandFlash(icon, msg, ms) {
+    if (!islandEnabled) return;
+    islandShow(icon, msg);
+    islandTimer = setTimeout(islandHide, ms || 1500);
+  }
+
+  // ---------- FELÜLET ----------
+
+  var chatEl, inputEl, sendBtn, typingEl;
+  var lastUserQuestion = "";
+
+  function $(id) { return document.getElementById(id); }
+
+  function scrollToBottom() {
+    chatEl.scrollTop = chatEl.scrollHeight;
+  }
+
+  function formatText(text) {
+    // Egyszerű formázás: **félkövér** és sortörések
+    var safe = text
+      .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
+      .replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>")
+      .replace(/\n/g, "<br>");
+    return safe;
+  }
+
+  function addUserMessage(text) {
+    var row = document.createElement("div");
+    row.className = "msg-row user";
+    row.innerHTML = '<div class="bubble user-bubble">' + formatText(text) + "</div>";
+    chatEl.appendChild(row);
+    scrollToBottom();
+  }
+
+  function addBotMessage(text, opts) {
+    opts = opts || {};
+    var row = document.createElement("div");
+    row.className = "msg-row bot";
+
+    var html = '<div class="avatar">🪄</div><div class="bubble-wrap">';
+    html += '<div class="bubble bot-bubble">' + formatText(text) + "</div>";
+
+    if (opts.link) {
+      html += '<a class="wiki-link" href="' + opts.link.replace(/"/g, "&quot;") +
+        '" target="_blank" rel="noopener">📖 Teljes cikk megnyitása</a>';
+    }
+    if (opts.links) {
+      opts.links.forEach(function (l) {
+        html += '<a class="wiki-link" href="' + l.url.replace(/"/g, "&quot;") +
+          '" target="_blank" rel="noopener">' + l.label + "</a>";
+      });
+    }
+
+    var tag = "";
+    if (opts.source === "learned") {
+      tag = (opts.entry && opts.entry.confirmed)
+        ? '<span class="source-tag">🎓 tanult ✓ megerősítve</span>'
+        : '<span class="source-tag warn-tag">🎓 tanult • nem megerősített</span>';
+    } else if (opts.source === "wiki") {
+      tag = '<span class="source-tag">🌐 Wikipédia</span>';
+    } else if (opts.source === "wiki-en") {
+      tag = '<span class="source-tag">🌐 angol Wikipédia</span>';
+    } else if (opts.source === "ddg") {
+      tag = '<span class="source-tag">🦆 DuckDuckGo</span>';
+    } else if (opts.source === "news") {
+      tag = '<span class="source-tag">📰 friss cikkek</span>';
+    } else if (opts.source === "sites") {
+      tag = '<span class="source-tag">🔗 ajánlott weboldalak</span>';
+    } else if (opts.source === "weather") {
+      tag = '<span class="source-tag">⛅ élő időjárás-adat</span>';
+    }
+
+    if (opts.feedback) {
+      html += '<div class="feedback">' +
+        '<button class="fb-btn fb-up" title="Jó válasz">👍</button>' +
+        '<button class="fb-btn fb-down" title="Rossz válasz – kijavítom">👎</button>' +
+        tag +
+        "</div>";
+    } else if (tag) {
+      html += '<div class="feedback">' + tag + "</div>";
+    }
+    if (opts.teachOffer) {
+      html += '<div class="teach-offer"><button class="btn-small btn-teach-now">✏️ Megtanítom neki</button></div>';
+    }
+    html += "</div>";
+    row.innerHTML = html;
+    chatEl.appendChild(row);
+
+    var question = opts.question || "";
+
+    var up = row.querySelector(".fb-up");
+    var down = row.querySelector(".fb-down");
+    if (up) up.addEventListener("click", function () {
+      if (opts.source === "learned" && opts.entry) {
+        confirmLearned(opts.entry.q);
+        row.querySelector(".feedback").innerHTML =
+          '<span class="fb-thanks">Köszi, megerősítetted! ✅ Mostantól jobban bízom ebben a válaszban.</span>';
+      } else {
+        row.querySelector(".feedback").innerHTML = '<span class="fb-thanks">Köszi a visszajelzést! 💜</span>';
+      }
+    });
+    if (down) down.addEventListener("click", function () {
+      openCorrectionForm(row, question);
+    });
+
+    var teachBtn = row.querySelector(".btn-teach-now");
+    if (teachBtn) teachBtn.addEventListener("click", function () {
+      openCorrectionForm(row, question, true);
+    });
+
+    scrollToBottom();
+  }
+
+  function openCorrectionForm(row, question, isTeach) {
+    if (row.querySelector(".correction-form")) return;
+    var form = document.createElement("div");
+    form.className = "correction-form";
+    form.innerHTML =
+      '<div class="cf-label">' + (isTeach ? "Mit válaszoljak erre legközelebb?" : "Mi lett volna a helyes válasz?") + "</div>" +
+      '<textarea class="cf-input" rows="2" placeholder="Írd ide a helyes választ..."></textarea>' +
+      '<div class="cf-actions"><button class="btn-small cf-save">💾 Mentés</button>' +
+      '<button class="btn-small btn-ghost cf-cancel">Mégse</button></div>';
+    row.querySelector(".bubble-wrap").appendChild(form);
+    var ta = form.querySelector(".cf-input");
+    ta.focus();
+    scrollToBottom();
+
+    form.querySelector(".cf-cancel").addEventListener("click", function () { form.remove(); });
+    form.querySelector(".cf-save").addEventListener("click", function () {
+      var ans = ta.value.trim();
+      if (!ans) { ta.focus(); return; }
+
+      var vet = vetTeaching(question, ans);
+
+      if (vet.verdict === "refuse") {
+        form.remove();
+        addBotMessage("Hohó, ezt inkább nem tanulom meg! 😅 Csúnya vagy értelmetlen válaszokat nem veszek fel a tudásomba.", {});
+        return;
+      }
+
+      // Ha a beépített tudásával ütközik, nem hiszi el elsőre
+      if (vet.verdict === "conflict" && !form.dataset.confirmed) {
+        form.dataset.confirmed = "1";
+        var warn = document.createElement("div");
+        warn.className = "cf-warn";
+        warn.innerHTML = "🤨 Hmm, az én tudásom mást mond erről:<br><em>" +
+          formatText(vet.builtin) + "</em><br>Biztos, hogy mégis a te válaszodat tanuljam meg?";
+        form.insertBefore(warn, form.querySelector(".cf-actions"));
+        form.querySelector(".cf-save").textContent = "✔️ Igen, biztos vagyok benne";
+        scrollToBottom();
+        return;
+      }
+
+      teach(question, ans);
+      form.remove();
+      var note = vet.verdict === "conflict"
+        ? "\nDe szólok: a saját tudásom mást mondott, ezért fenntartásokkal kezelem, amíg 👍-zal meg nem erősíted. 🤔"
+        : "\n(Óvatosan kezelem, amíg egy 👍-zal meg nem erősíted.)";
+      addBotMessage("Rendben, megjegyeztem! 🧠✨ Ha legközelebb azt kérdezed: **" + question + "**, már ezt fogom válaszolni." + note, {});
+    });
+  }
+
+  function showTyping() {
+    typingEl = document.createElement("div");
+    typingEl.className = "msg-row bot";
+    typingEl.innerHTML = '<div class="avatar">🪄</div><div class="bubble bot-bubble typing"><span></span><span></span><span></span></div>';
+    chatEl.appendChild(typingEl);
+    scrollToBottom();
+  }
+
+  function hideTyping() {
+    if (typingEl) { typingEl.remove(); typingEl = null; }
+  }
+
+  function handleSend() {
+    var text = inputEl.value.trim();
+    if (!text) return;
+    // Az első üzenetnél jegyezzük meg, hogy a verzió-üdvözlőt már látta
+    try { localStorage.setItem(VERSION_KEY, APP_VERSION); } catch (e) {}
+    inputEl.value = "";
+    inputEl.style.height = "auto";
+    addUserMessage(text);
+    lastUserQuestion = text;
+
+    showTyping();
+    islandShow("🤔", "Gondolkozom…");
+    var delay = 350 + Math.random() * 500;
+
+    // Kifejezett kérés az internetes keresésre
+    var forceWeb = /^(nezz utana|keress ra|keresd meg|wiki)\b/.test(normalize(text));
+
+    setTimeout(function () {
+      // Stílusváltó parancs: "beszélj viccesen", "kalóz mód"...
+      var styleCmd = parseStyleCommand(text);
+      if (styleCmd) {
+        hideTyping();
+        islandFlash("🎭", "Stílust váltok…");
+        setStyle(styleCmd);
+        addBotMessage(STYLES[styleCmd].confirm, {});
+        return;
+      }
+
+      // Hír-kérés: friss cikkek a sajtóból
+      var newsQ = forceWeb ? null : parseNewsQuery(text);
+      if (newsQ) {
+        islandShow("📰", "Friss cikkeket keresek…");
+        fetchNews(newsQ.topic).then(function (items) {
+          hideTyping();
+          islandFlash("✅", "Megvan, hozom a híreket!");
+          var head = newsQ.topic
+            ? "Ezt írják most a sajtóban erről: **" + newsQ.topic + "** 📰"
+            : "Íme a legfrissebb hírek! 📰";
+          addBotMessage(applyStyle(head) + "\n\n" + newsList(items), {
+            feedback: true, question: text, source: "news", links: newsLinks(items)
+          });
+        }).catch(function () {
+          hideTyping();
+          islandFlash("😕", "Nem értem el a híreket…");
+          addBotMessage("Most nem érem el a hírszolgáltatást. 📰 Nézd meg, van-e internetkapcsolat, és próbáld újra!", {});
+        });
+        return;
+      }
+
+      // Időjárás-kérdés: élő adat az Open-Meteo-tól
+      var weatherQ = forceWeb ? null : parseWeatherQuery(text);
+      if (weatherQ) {
+        islandShow("⛅", "Megnézem az időjárást…");
+        getWeather(weatherQ.city, weatherQ.day).then(function (report) {
+          hideTyping();
+          islandFlash("✅", "Megvan az időjárás!");
+          addBotMessage(applyStyle(report), { source: "weather", question: text });
+        }).catch(function () {
+          hideTyping();
+          islandFlash("😕", "Nem találtam az időjárást…");
+          addBotMessage(weatherQ.city
+            ? "Sajnos nem találtam **" + weatherQ.city + "** nevű települést, vagy nem érem el az időjárás-szolgáltatást. 🌧️ Próbáld másképp írni a város nevét!"
+            : "Most nem érem el az időjárás-szolgáltatást. 🌧️ Nézd meg, van-e internetkapcsolat!", {});
+        });
+        return;
+      }
+
+      // Weboldal-ajánlás: "milyen weboldalon találok recepteket?"
+      var siteQ = forceWeb ? null : parseWebsiteQuery(text);
+      if (siteQ) {
+        hideTyping();
+        islandFlash("🔗", "Összegyűjtöm a legjobb oldalakat!");
+        addBotMessage(applyStyle(siteQ.intro), {
+          feedback: true, question: text, source: "sites", links: siteQ.links
+        });
+        return;
+      }
+
+      var result = forceWeb ? null : findAnswer(text);
+      if (result) {
+        hideTyping();
+        islandFlash("💡", "Megvan a válasz!");
+        addBotMessage(applyStyle(result.text), {
+          feedback: result.source !== "dynamic",
+          question: text,
+          source: result.source,
+          entry: result.entry
+        });
+        return;
+      }
+
+      // Rövid, beszélgetős üzenet (pl. "ok", "aha"): ilyenkor NEM keresünk
+      // a neten, hanem folytatjuk a beszélgetést
+      var small = forceWeb ? null : trySmallTalk(text);
+      if (small) {
+        hideTyping();
+        islandFlash("💬", "Beszélgetünk!");
+        addBotMessage(applyStyle(small), {});
+        return;
+      }
+
+      // Helyben nincs válasz: utánanézünk az interneten, több forrásban
+      // (sorrend: magyar Wikipédia → angol Wikipédia → DuckDuckGo → friss cikkek)
+      islandShow("🌐", "Utánanézek a neten…");
+      searchWikipedia(text, "hu")
+        .then(function (w) { return { kind: "wiki", title: w.title, text: w.text, url: w.url }; })
+        .catch(function () {
+          return searchWikipedia(text, "en").then(function (w) {
+            return { kind: "wiki-en", title: w.title, text: w.text, url: w.url };
+          });
+        })
+        .catch(function () {
+          return searchDuckDuckGo(text).then(function (d) {
+            return { kind: "ddg", title: d.title, text: d.text, url: d.url };
+          });
+        })
+        .catch(function () {
+          return fetchNews(extractTopic(text)).then(function (items) {
+            return { kind: "news", items: items };
+          });
+        })
+        .then(function (res) {
+          hideTyping();
+          islandFlash("✅", "Megtaláltam!");
+          if (res.kind === "news") {
+            addBotMessage(
+              applyStyle("Lexikonban nem találtam, de friss cikkeket igen! 📰") + "\n\n" + newsList(res.items),
+              { feedback: true, question: text, source: "news", links: newsLinks(res.items) });
+            return;
+          }
+          var intro = forceWeb ? "Utánanéztem! 🌐" : "Ezt helyben nem tudtam, ezért utánanéztem az interneten! 🌐";
+          if (res.kind === "ddg") intro += "\n(A DuckDuckGo keresőben találtam ezt:)";
+          if (res.kind === "wiki-en") intro += "\n(Magyarul nem találtam, de az angol Wikipédián igen:)";
+          addBotMessage(applyStyle(intro + "\n**" + res.title + "** – " + res.text),
+            { feedback: true, question: text, source: res.kind, link: res.url });
+        })
+        .catch(function () {
+          hideTyping();
+          islandFlash("🙈", "Ezt nem találtam…");
+          var msg = UNKNOWN_REPLIES[Math.floor(Math.random() * UNKNOWN_REPLIES.length)] +
+            "\nAz interneten sem találtam róla semmit. Taníts meg rá, és soha többé nem felejtem el!";
+          addBotMessage(applyStyle(msg), { teachOffer: true, question: text });
+        });
+    }, delay);
+  }
+
+  // ---------- TANÍTÁS FÜL ----------
+
+  function setupTeachTab() {
+    var btn = $("teach-save");
+    btn.addEventListener("click", function () {
+      var q = $("teach-q").value.trim();
+      var a = $("teach-a").value.trim();
+      var status = $("teach-status");
+      if (!q || !a) {
+        status.textContent = "⚠️ Mindkét mezőt töltsd ki!";
+        status.className = "teach-status warn";
+        return;
+      }
+
+      var vet = vetTeaching(q, a);
+
+      if (vet.verdict === "refuse") {
+        status.textContent = "🙅 Ezt nem tanulom meg – csúnya vagy értelmetlen válaszokat nem fogadok el!";
+        status.className = "teach-status warn";
+        btn.dataset.confirm = "";
+        return;
+      }
+
+      // Ütközés a beépített tudással: csak második kattintásra hiszi el
+      if (vet.verdict === "conflict" && btn.dataset.confirm !== q) {
+        btn.dataset.confirm = q;
+        status.textContent = "🤨 Az én tudásom mást mond erről! Ha tényleg biztos vagy benne, kattints még egyszer.";
+        status.className = "teach-status warn";
+        return;
+      }
+
+      btn.dataset.confirm = "";
+      teach(q, a);
+      $("teach-q").value = "";
+      $("teach-a").value = "";
+      status.textContent = "✅ Megtanultam! (Fenntartásokkal kezelem, amíg a chatben 👍-zal meg nem erősíted.)";
+      status.className = "teach-status ok";
+      setTimeout(function () { status.textContent = ""; }, 5000);
+    });
+  }
+
+  // ---------- TUDÁSTÁR FÜL ----------
+
+  function renderLearnedList() {
+    var listEl = $("learned-list");
+    if (!listEl) return;
+    var filter = normalize($("learned-search").value || "");
+    var learned = loadLearned();
+
+    if (learned.length === 0) {
+      listEl.innerHTML = '<div class="empty-state">Még nincs tanult tudás.<br>Taníts a Tanítás fülön, vagy javíts ki egy választ a 👎 gombbal!</div>';
+      return;
+    }
+
+    var html = "";
+    learned.forEach(function (e, idx) {
+      if (filter && normalize(e.q + " " + e.a).indexOf(filter) === -1) return;
+      var badge = e.confirmed
+        ? '<span class="li-badge ok">✓ megerősítve</span>'
+        : '<span class="li-badge warn">⚠ nem megerősített</span>';
+      html += '<div class="learned-item">' +
+        '<div class="li-texts"><div class="li-q">' + formatText(e.q) + " " + badge + '</div>' +
+        '<div class="li-a">' + formatText(e.a) + "</div></div>" +
+        '<button class="li-del" data-idx="' + idx + '" title="Törlés">🗑️</button></div>';
+    });
+    listEl.innerHTML = html || '<div class="empty-state">Nincs találat a keresésre.</div>';
+
+    listEl.querySelectorAll(".li-del").forEach(function (btn) {
+      btn.addEventListener("click", function () {
+        var list = loadLearned();
+        list.splice(parseInt(btn.getAttribute("data-idx"), 10), 1);
+        saveLearned(list);
+      });
+    });
+  }
+
+  function setupKnowledgeTab() {
+    $("learned-search").addEventListener("input", renderLearnedList);
+
+    $("btn-export").addEventListener("click", function () {
+      var data = JSON.stringify(loadLearned(), null, 2);
+      var blob = new Blob([data], { type: "application/json" });
+      var a = document.createElement("a");
+      a.href = URL.createObjectURL(blob);
+      a.download = "magic-ai-tudas.json";
+      a.click();
+      URL.revokeObjectURL(a.href);
+    });
+
+    $("btn-import").addEventListener("click", function () { $("import-file").click(); });
+    $("import-file").addEventListener("change", function (ev) {
+      var file = ev.target.files[0];
+      if (!file) return;
+      var reader = new FileReader();
+      reader.onload = function () {
+        try {
+          var incoming = JSON.parse(reader.result);
+          if (!Array.isArray(incoming)) throw new Error("rossz formátum");
+          var list = loadLearned();
+          incoming.forEach(function (e) {
+            if (e && e.q && e.a) {
+              var nq = normalize(e.q);
+              var ex = list.findIndex(function (x) { return normalize(x.q) === nq; });
+              if (ex !== -1) list[ex] = e; else list.push(e);
+            }
+          });
+          saveLearned(list);
+          alert("Sikeres importálás! 🎉");
+        } catch (err) {
+          alert("Hibás fájl – csak a Magic AI által exportált JSON-t tudom beolvasni.");
+        }
+      };
+      reader.readAsText(file);
+      ev.target.value = "";
+    });
+
+    $("btn-clear-all").addEventListener("click", function () {
+      if (loadLearned().length === 0) return;
+      if (confirm("Biztosan törlöd az ÖSSZES tanult tudást? Ez nem vonható vissza!")) {
+        saveLearned([]);
+      }
+    });
+  }
+
+  // ---------- STATISZTIKA, FÜLEK, TÉMA ----------
+
+  function updateStats() {
+    var kbCount = 0;
+    (window.MAGIC_KB || []).forEach(function (e) { kbCount += e.q.length; });
+    $("stat-kb").textContent = kbCount;
+    $("stat-learned").textContent = loadLearned().length;
+  }
+
+  function setupTabs() {
+    var tabs = document.querySelectorAll(".tab-btn");
+    tabs.forEach(function (btn) {
+      btn.addEventListener("click", function () {
+        tabs.forEach(function (b) { b.classList.remove("active"); });
+        document.querySelectorAll(".tab-panel").forEach(function (p) { p.classList.remove("active"); });
+        btn.classList.add("active");
+        $(btn.getAttribute("data-tab")).classList.add("active");
+        if (btn.getAttribute("data-tab") === "tab-knowledge") renderLearnedList();
+        if (btn.getAttribute("data-tab") === "tab-chat") inputEl.focus();
+      });
+    });
+  }
+
+  function setTheme(mode) {
+    document.body.classList.toggle("dark", mode === "dark");
+    localStorage.setItem(THEME_KEY, mode);
+    document.querySelectorAll(".theme-chip").forEach(function (b) {
+      b.classList.toggle("active", b.getAttribute("data-theme") === mode);
+    });
+  }
+
+  function setupSettings() {
+    // Téma
+    setTheme(localStorage.getItem(THEME_KEY) === "dark" ? "dark" : "light");
+    document.querySelectorAll(".theme-chip").forEach(function (btn) {
+      btn.addEventListener("click", function () { setTheme(btn.getAttribute("data-theme")); });
+    });
+
+    // Magic Island kapcsoló
+    var toggle = $("island-toggle");
+    toggle.checked = islandEnabled;
+    toggle.addEventListener("change", function () {
+      islandEnabled = toggle.checked;
+      localStorage.setItem(ISLAND_KEY, islandEnabled ? "1" : "0");
+      if (islandEnabled) islandFlash("🏝️", "Magic Island bekapcsolva!", 2000);
+      else islandHide();
+    });
+  }
+
+  function setupSuggestions() {
+    document.querySelectorAll(".chip").forEach(function (chip) {
+      chip.addEventListener("click", function () {
+        inputEl.value = chip.textContent;
+        handleSend();
+      });
+    });
+  }
+
+  function setupStyleBar() {
+    document.querySelectorAll(".style-chip").forEach(function (btn) {
+      btn.addEventListener("click", function () {
+        var s = btn.getAttribute("data-style");
+        if (s === currentStyle) return;
+        setStyle(s);
+        addBotMessage(STYLES[s].confirm, {});
+      });
+    });
+    setStyle(currentStyle);
+  }
+
+  // ---------- INDÍTÁS ----------
+
+  document.addEventListener("DOMContentLoaded", function () {
+    chatEl = $("chat-messages");
+    inputEl = $("chat-input");
+    sendBtn = $("send-btn");
+    islandEl = $("magic-island");
+
+    sendBtn.addEventListener("click", handleSend);
+    inputEl.addEventListener("keydown", function (e) {
+      if (e.key === "Enter" && !e.shiftKey) {
+        e.preventDefault();
+        handleSend();
+      }
+    });
+    inputEl.addEventListener("input", function () {
+      inputEl.style.height = "auto";
+      inputEl.style.height = Math.min(inputEl.scrollHeight, 120) + "px";
+    });
+
+    setupTabs();
+    setupSettings();
+    setupTeachTab();
+    setupKnowledgeTab();
+    setupSuggestions();
+    setupStyleBar();
+    updateStats();
+
+    // Első megnyitáskor (vagy frissítés után) üdvözlő az újdonságokkal
+    var seenVersion = null;
+    try { seenVersion = localStorage.getItem(VERSION_KEY); } catch (e) {}
+    if (seenVersion !== APP_VERSION) {
+      // A jelölőt csak az első elküldött üzenetnél mentjük (handleSend),
+      // így az üdvözlő addig újra megjelenik, amíg el nem kezdesz beszélgetni.
+      addBotMessage(
+        "🎉 **Üdvözlünk az új verzióban! Ez a Magic AI 1.1!** 🪄\n\n" +
+        "Ezeket az újdonságokat adtuk most hozzá:\n" +
+        "• 💬 **Közvetlenebb beszélgetés** – ha csak annyit írsz: „ok”, „aha” vagy „szuper”, már nem kezdek el a neten keresgélni, hanem természetesen folytatom veled a beszélgetést.\n" +
+        "• 🔗 **Weboldal-ajánló** – kérdezd meg pl.: „Milyen weboldalon találok recepteket?”, és elküldöm a témával foglalkozó weboldalak linkjeit, amiket egy kattintással megnyithatsz!\n" +
+        "• 🧠 **Sokkal nagyobb tudás** – rengeteg új beépített kérdés-válasz került belém: ünnepek, technika, tudomány, állatok, sport, gasztronómia és kötetlen beszélgetős témák.\n" +
+        "• 🏷️ **Verziókövetés** – mostantól minden frissítésnél szólok, és felsorolom az újdonságokat.\n\n" +
+        "Jó beszélgetést! Kérdezz bátran bármit! 😊",
+        {}
+      );
+    } else {
+      addBotMessage(
+        "Szia! 👋 Én vagyok a **Magic AI** – egy teljesen saját fejlesztésű mesterséges intelligencia.\n" +
+        "Kérdezz bátran! Megmondom az **időjárást** ⛅, elhozom a **friss híreket** 📰, **weboldalakat ajánlok** 🔗 bármilyen témához, és ha helyben nem tudom a választ, " +
+        "**utánanézek az interneten** 🌐 (Wikipédia, DuckDuckGo, cikkek). **Meg is taníthatsz** dolgokra, és a stílusomat is átállíthatod " +
+        "– mondd csak: „beszélj viccesen!” 😜 A **⚙️ Beállítások** fülön témát és stílust válthatsz, és ott kapcsolhatod a **Magic Islandet** 🏝️ is. " +
+        "De vigyázz: nem hiszek el mindent elsőre! 🤨 Ha hibázom, a 👎 gombbal kijavíthatsz. 🪄",
+        {}
+      );
+    }
+    inputEl.focus();
+  });
+
+  // Fejlesztői interfész a konzolból való teszteléshez
+  window.MagicAI = {
+    findAnswer: findAnswer, scoreMatch: scoreMatch, normalize: normalize,
+    parseWeatherQuery: parseWeatherQuery, getWeather: getWeather,
+    applyStyle: applyStyle, setStyle: setStyle, parseStyleCommand: parseStyleCommand,
+    parseNewsQuery: parseNewsQuery, fetchNews: fetchNews, searchDuckDuckGo: searchDuckDuckGo,
+    parseWebsiteQuery: parseWebsiteQuery, trySmallTalk: trySmallTalk,
+    islandShow: islandShow, islandFlash: islandFlash, islandHide: islandHide, setTheme: setTheme
+  };
+})();
