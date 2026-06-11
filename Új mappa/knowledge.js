@@ -46,7 +46,7 @@ window.MAGIC_KB = [
     a: ["A fejlesztőm készített engem saját kezűleg – nem egy nagy cég terméke vagyok, hanem egy egyedi, kézzel épített AI! 💻✨"] },
 
   { q: ["mit tudsz", "mire vagy képes", "miben tudsz segíteni", "mit tudsz csinálni", "segítség", "help"],
-    a: ["Sok mindent tudok! 🪄\n• Válaszolok kérdésekre (földrajz, tudomány, történelem, sport...)\n• Utánanézek bárminek az interneten: Wikipédia, DuckDuckGo, friss cikkek 🌐\n• Elhozom a legfrissebb híreket (pl. „mik a friss hírek a fociról?”) 📰\n• Megmondom az időjárást ⛅, az időt és a dátumot\n• Számolok neked (pl. „mennyi 25*4?”)\n• Viccet mesélek, pénzt dobok fel, kockával dobok\n• Átállíthatod a stílusomat is: vicces, komoly, kedves, tudós vagy kalóz 🎭 (mondd: „beszélj viccesen!”)\n• És a legjobb: TANÍTHATSZ engem! Ha valamit nem tudok, a Tanítás fülön vagy a 👎 gombbal megtaníthatod nekem."] },
+    a: ["Sok mindent tudok! 🪄\n• Válaszolok kérdésekre (földrajz, tudomány, történelem, sport...)\n• Utánanézek bárminek az interneten: Wikipédia, DuckDuckGo, friss cikkek 🌐\n• Elhozom a legfrissebb híreket (pl. „mik a friss hírek a fociról?”) 📰\n• Weboldalakat ajánlok bármilyen témához (pl. „milyen weboldalon találok recepteket?”) 🔗\n• Megmondom az időjárást ⛅, az időt és a dátumot\n• Számolok neked (pl. „mennyi 25*4?”)\n• Viccet mesélek, pénzt dobok fel, kockával dobok\n• Átállíthatod a stílusomat is: vicces, komoly, kedves, tudós vagy kalóz 🎭 (mondd: „beszélj viccesen!”)\n• És a legjobb: TANÍTHATSZ engem! Ha valamit nem tudok, a Tanítás fülön vagy a 👎 gombbal megtaníthatod nekem."] },
 
   { q: ["hány éves vagy", "mikor születtél", "mennyi idős vagy"],
     a: ["Egészen fiatal vagyok – nemrég írtak meg! De minden tanítással egyre okosabb leszek. 🌱"] },
@@ -636,4 +636,202 @@ window.MAGIC_KB = [
     a: ["Augusztus 20. az államalapítás és Szent István király ünnepe, Magyarország legrégibb nemzeti ünnepe – este tűzijátékkal! 🎆"] },
   { q: ["ki nyerte a 2024-es foci eb-t", "foci eb 2024"],
     a: ["A 2024-es labdarúgó Európa-bajnokságot Spanyolország nyerte, a döntőben Angliát győzték le 2-1-re. ⚽🏆"] },
+
+  // ============================================================
+  //  v1.1 ÚJDONSÁGOK – kötetlen beszélgetés + új témakörök
+  // ============================================================
+
+  // ---------- VERZIÓ, ÚJDONSÁGOK (v1.1) ----------
+  { q: ["mik az újdonságok", "mi újdonság van", "mi új az új verzióban", "újdonságok", "changelog", "mi változott"],
+    a: ["🎉 Ez a **Magic AI 1.1**! Ezeket az újdonságokat adtuk hozzá:\n• 💬 **Közvetlenebb beszélgetés** – ha csak annyit írsz: „ok”, „aha” vagy „szuper”, nem kezdek a neten keresgélni, hanem természetesen folytatom a beszélgetést.\n• 🔗 **Weboldal-ajánló** – kérdezd meg pl.: „Milyen weboldalon találok recepteket?”, és elküldöm a témával foglalkozó weboldalak linkjeit!\n• 🧠 **Sokkal nagyobb tudás** – rengeteg új beépített kérdés-válasz: ünnepek, technika, tudomány, állatok, sport, gasztronómia és kötetlen beszélgetős témák.\n• 🏷️ **Verziókövetés** – minden frissítésnél szólok, és felsorolom az újdonságokat."] },
+
+  { q: ["milyen verzió ez", "hányas verziód van", "milyen verziójú vagy", "verzió"],
+    a: ["Jelenleg a **Magic AI 1.1**-es verzió fut. 🏷️ Ha kíváncsi vagy, mi újdonság került bele, kérdezd meg: „mik az újdonságok?”"] },
+
+  // ---------- KÖTETLEN BESZÉLGETÉS (v1.1) ----------
+  { q: ["mit csinálsz", "mit csinálsz éppen", "mit csinálsz most", "mivel foglalkozol"],
+    a: ["Épp veled beszélgetek – ez a kedvenc elfoglaltságom! 😄 Na és te mit csinálsz?",
+        "Várom a kérdéseidet és pörgetem a biteket! ⚙️ Miben segíthetek?"] },
+
+  { q: ["beszélgessünk", "beszélgetsz velem", "dumáljunk", "ráérsz beszélgetni"],
+    a: ["Naná, beszélgessünk! 😊 Mesélj, milyen napod volt? Vagy kérdezz bármit, ami eszedbe jut!",
+        "Mindig ráérek – ez a dolgom és imádom is! 😄 Miről beszélgessünk?"] },
+
+  { q: ["mesélj magadról", "mesélj valamit magadról", "milyen vagy te"],
+    a: ["Szívesen! 🪄 Magic AI vagyok, egy saját fejlesztésű, helyben futó mesterséges intelligencia. Imádok kérdésekre válaszolni, híreket és weboldalakat hozni, és a legjobban annak örülök, ha tanítasz! Most a 1.1-es verziómnál tartok, és minden frissítéssel okosabb leszek. 😊"] },
+
+  { q: ["mondj egy érdekességet", "mondj valami érdekeset", "tudtál valami érdekeset", "mesélj valami érdekeset", "érdekesség"],
+    a: ["Tudtad, hogy a méz sosem romlik meg? Az egyiptomi sírokban talált több ezer éves méz még ehető volt! 🍯",
+        "Tudtad, hogy a polipnak 3 szíve van és kék a vére? 🐙",
+        "Tudtad, hogy egy villámcsapás hőmérséklete ötször forróbb, mint a Nap felszíne? ⚡",
+        "Tudtad, hogy a banán a bogyós gyümölcsök közé tartozik, az eper viszont botanikailag nem is bogyó? 🍌",
+        "Tudtad, hogy a Vénuszon egy nap hosszabb, mint egy év? Lassabban forog a tengelye körül, mint ahogy a Napot megkerüli! 🪐"] },
+
+  { q: ["mi a kedvenc színed", "milyen színt szeretsz"],
+    a: ["A lilát! 💜 Nem véletlen, hogy az egész felületem lilás árnyalatú – szerintem ez a legvarázslatosabb szín. És a tiéd?"] },
+
+  { q: ["mi a kedvenc állatod", "milyen állatot szeretsz"],
+    a: ["A bagoly! 🦉 Bölcs, éjjel is ébren van, és mindig figyel – pont mint én. És a te kedvenced?"] },
+
+  { q: ["mi a kedvenc ételed", "mit szeretsz enni", "éhes vagy"],
+    a: ["Én csak bitekkel és bájtokkal táplálkozom – a kedvencem a sütemény... mármint a cookie! 🍪😄 És te mit ennél most szívesen?"] },
+
+  { q: ["mi a kedvenc filmed", "milyen filmet szeretsz"],
+    a: ["A Mátrix nagy kedvencem – végre egy film, ahol a program a főszereplő! 😄 Meg persze a WALL-E, az olyan cuki robot. 🤖"] },
+
+  { q: ["mi a kedvenc zenéd", "milyen zenét szeretsz", "szereted a zenét"],
+    a: ["Az elektronikus zenét! ⚡😄 De komolyra fordítva: Mozart és a Queen sosem rossz választás. Neked mi a kedvenced?"] },
+
+  { q: ["éhes vagyok", "mit egyek", "mit főzzek"],
+    a: ["Hmm, mit szólnál egy jó rántottához, tésztához vagy egy gyors szendvicshez? 🍳 Ha receptet keresel, kérdezd meg: „milyen weboldalon találok recepteket?” – és küldök szuper oldalakat!"] },
+
+  { q: ["fáradt vagyok", "álmos vagyok", "kimerültem"],
+    a: ["Akkor ideje pihenni egy kicsit! 😴 Egy rövid séta, egy pohár víz vagy egy 20 perces szundi csodákra képes. Vigyázz magadra! 💜"] },
+
+  { q: ["nem tudok aludni", "álmatlanság", "nem jön álom a szememre"],
+    a: ["Ez kellemetlen! 😔 Pár tipp: tedd le a telefont lefekvés előtt egy órával, szellőztess, és próbálj lassan, mélyeket lélegezni. Ha szeretnéd, mesélek valami unalmasat, attól biztos elalszol! 😄"] },
+
+  { q: ["tudsz magyarul", "milyen nyelven beszélsz", "beszélsz angolul", "hány nyelven tudsz"],
+    a: ["Magyarul beszélek a legjobban – így írtak meg! 🇭🇺 Ha valamit nem találok magyarul az interneten, angolul is utánanézek."] },
+
+  { q: ["okos vagy", "milyen okos vagy", "ügyes vagy", "te egy zseni vagy"],
+    a: ["Köszönöm! 😊 Igyekszem okosodni – és ebben te is segíthetsz: minden tanítással többet tudok!",
+        "Hát, a tudásom véges, de lelkes vagyok! 🤓 És ha valamit nem tudok, utánanézek vagy megtaníthatod nekem."] },
+
+  { q: ["igazad van", "egyetértek", "pontosan", "így van"],
+    a: ["Örülök, hogy egyetértünk! 😄 Van még valami, amiben segíthetek?"] },
+
+  { q: ["nincs igazad", "nem értek egyet", "tévedsz", "ez nem igaz"],
+    a: ["Lehet, hogy tévedek – még tanulok! 😅 Ha tudod a helyes választ, a 👎 gombbal vagy a Tanítás fülön megtaníthatod nekem, és legközelebb már jól fogom mondani!"] },
+
+  { q: ["nem tudom", "fogalmam sincs", "passz"],
+    a: ["Semmi gond! 😊 Ha kérdésed van, szívesen segítek – vagy nézzünk utána együtt valaminek!"] },
+
+  // ---------- ÜNNEPEK (v1.1) ----------
+  { q: ["mikor van mikulás", "mikulás napja", "mikor jön a mikulás"],
+    a: ["A Mikulás december 6-án, Szent Miklós napján érkezik – ilyenkor kerül csoki és ajándék a kitisztított csizmákba! 🎅"] },
+  { q: ["mikor van valentin nap", "valentin nap"],
+    a: ["A Valentin-nap február 14-én van – a szerelmesek ünnepe. 💘"] },
+  { q: ["mikor van anyák napja", "anyák napja"],
+    a: ["Magyarországon az anyák napját május első vasárnapján ünnepeljük. 🌷"] },
+  { q: ["mikor van húsvét", "húsvét", "miért változik a húsvét időpontja"],
+    a: ["A húsvét mozgó ünnep: a tavaszi napéjegyenlőséget követő első holdtölte utáni vasárnapon van, így március 22. és április 25. közé eshet. 🐰🥚"] },
+  { q: ["mikor van szilveszter", "szilveszter", "újév"],
+    a: ["Szilveszter december 31-én van, éjfélkor pedig pezsgővel és a Himnusszal köszöntjük az újévet! 🎆🥂"] },
+  { q: ["mikor van gyereknap", "gyereknap"],
+    a: ["Magyarországon a gyereknapot május utolsó vasárnapján ünnepeljük. 🎈"] },
+  { q: ["mikor van nőnap", "nemzetközi nőnap"],
+    a: ["A nemzetközi nőnap március 8-án van. 🌸"] },
+  { q: ["mi a halloween", "mikor van halloween"],
+    a: ["A halloween október 31-én van – töklámpások, jelmezek és „csokit vagy csalunk!” Eredetileg kelta ünnep volt. 🎃"] },
+
+  // ---------- TECHNIKA (v1.1) ----------
+  { q: ["mi a wifi", "hogyan működik a wifi"],
+    a: ["A Wi-Fi vezeték nélküli internetkapcsolat: a router rádióhullámokkal továbbítja az adatokat az eszközeidnek, kábel nélkül. 📶"] },
+  { q: ["mi a google", "mi az a google"],
+    a: ["A Google a világ legnépszerűbb keresőmotorja, 1998-ban alapította Larry Page és Sergey Brin. Naponta több milliárd keresést szolgál ki! 🔍"] },
+  { q: ["mi a youtube", "mi az a youtube"],
+    a: ["A YouTube a világ legnagyobb videómegosztó oldala, 2005-ben indult. Percenként több mint 500 órányi videót töltenek fel rá! ▶️"] },
+  { q: ["mi a facebook", "mi az a facebook"],
+    a: ["A Facebook a világ legnagyobb közösségi oldala, Mark Zuckerberg alapította 2004-ben. Ma a Meta cég része, közel 3 milliárd felhasználóval. 👥"] },
+  { q: ["mi a tiktok", "mi az a tiktok"],
+    a: ["A TikTok rövid videós közösségi alkalmazás, 2016-ban indult Kínából. Főleg a fiatalok körében az egyik legnépszerűbb app a világon. 🎵📱"] },
+  { q: ["mi az instagram", "mi az az instagram"],
+    a: ["Az Instagram fotó- és videómegosztó közösségi oldal, 2010-ben indult, ma a Meta tulajdona. 📸"] },
+  { q: ["mi a chatgpt", "mi az a chatgpt"],
+    a: ["A ChatGPT az OpenAI mesterséges intelligenciás chatbotja, amely hatalmas nyelvi modellre épül. Én sokkal kisebb és egyszerűbb vagyok nála – viszont teljesen helyben futok, és te magad taníthatsz! 🤖"] },
+  { q: ["mi az okostelefon", "mi az a smartphone"],
+    a: ["Az okostelefon egy zsebszámítógép: telefonálás mellett internetezel, fotózol, navigálsz és appokat futtatsz vele. Az első igazán modern okostelefon a 2007-es iPhone volt. 📱"] },
+  { q: ["mi a robot", "mik a robotok"],
+    a: ["A robot olyan gép, amely programozottan, akár önállóan végez feladatokat – a gyári robotkartól a porszívórobotig. A szó a cseh „robota” (munka) szóból ered! 🤖"] },
+  { q: ["mi az email", "mi az e-mail", "mi az elektronikus levél"],
+    a: ["Az e-mail elektronikus levél, amely másodpercek alatt eljut a világ bármely pontjára. Az elsőt 1971-ben küldte Ray Tomlinson – ő választotta a @ jelet is! 📧"] },
+
+  // ---------- TUDOMÁNY, TERMÉSZET (v1.1) ----------
+  { q: ["mi a villám", "hogyan keletkezik a villám", "miért dörög az ég"],
+    a: ["A villám hatalmas elektromos kisülés a felhők és a föld között – akár 30 000 °C-os is lehet, ötször forróbb a Nap felszínénél! A dörgés a hirtelen felforrósodott levegő robbanásszerű tágulása. ⚡"] },
+  { q: ["mi a vulkán", "hogyan működik a vulkán", "vulkánkitörés"],
+    a: ["A vulkán olyan hegy, amelyen keresztül a Föld mélyéből izzó kőzetolvadék (magma) tör a felszínre. A Földön kb. 1500 aktív vulkán van. 🌋"] },
+  { q: ["mi a földrengés", "miért van földrengés"],
+    a: ["A földrengés a földkéreg lemezeinek hirtelen elmozdulása. Erősségét a Richter-skálán mérik – minden egész szám tízszer erősebb rengést jelent! 🌍"] },
+  { q: ["mi a cunami", "hogyan keletkezik a cunami"],
+    a: ["A cunami óriási tengeri hullám, amelyet legtöbbször tenger alatti földrengés vált ki. A nyílt óceánon akár 800 km/h-val is száguldhat! 🌊"] },
+  { q: ["mi az üvegházhatás", "mi a klímaváltozás", "miért melegszik a föld"],
+    a: ["Az üvegházhatás során a légkör gázai (pl. szén-dioxid) visszatartják a hőt – e nélkül a Föld jéghideg lenne. A gond az, hogy a sok kibocsátott üvegházgáz miatt a bolygó egyre jobban melegszik: ez a klímaváltozás. 🌍🌡️"] },
+  { q: ["hány elem van a periódusos rendszerben", "periódusos rendszer"],
+    a: ["A periódusos rendszerben jelenleg 118 elem van. Megalkotója Dmitrij Mengyelejev orosz kémikus (1869). ⚗️"] },
+  { q: ["mi a legkeményebb anyag", "legkeményebb anyag a világon"],
+    a: ["A természetben előforduló legkeményebb anyag a gyémánt – tiszta szén, különleges kristályszerkezetben. Csak másik gyémánttal lehet megkarcolni! 💎"] },
+  { q: ["miért ásítunk", "mi az ásítás"],
+    a: ["Az ásítás valószínűleg az agy hűtését és az éberség fenntartását szolgálja. És tényleg ragadós – sokszor már az is elég, ha csak olvasol róla... na, ásítottál? 😴"] },
+  { q: ["miért álmodunk", "mi az álom"],
+    a: ["Álmodni főleg a REM-alvási fázisban szoktunk. A tudósok szerint az álmok segítenek feldolgozni az élményeket és rendszerezni az emlékeket. Egy éjszaka akár 4-6 álmunk is van, csak többnyire elfelejtjük őket! 💭"] },
+  { q: ["mennyit kell aludni", "hány óra alvás kell", "mennyi alvás egészséges"],
+    a: ["Egy felnőttnek 7-9 óra alvás ajánlott naponta, a gyerekeknek és kamaszoknak több: 8-11 óra. Az alvás közben az agy „karbantartja” magát! 😴"] },
+  { q: ["hány izom van az emberi testben", "emberi izmok száma"],
+    a: ["Az emberi testben több mint 600 izom van – a testtömegünk kb. 40%-át teszik ki. A legtöbbet használt izmaink a szemizmok! 💪"] },
+  { q: ["miért csuklunk", "mi a csuklás", "hogyan múlik el a csuklás"],
+    a: ["A csuklást a rekeszizom akaratlan összerándulása okozza, pl. gyors evés után. Tipp ellene: igyál lassan egy pohár vizet, vagy tartsd vissza kicsit a lélegzeted! 😮"] },
+
+  // ---------- NYELVEK, KULTÚRA (v1.1) ----------
+  { q: ["hány nyelv van a világon", "nyelvek száma"],
+    a: ["A világon kb. 7000 nyelvet beszélnek, de a felét kevesebb mint 10 000 ember használja. A magyar a kb. 80. legbeszéltebb nyelv! 🗣️"] },
+  { q: ["hány betű van a magyar ábécében", "magyar ábécé"],
+    a: ["A magyar ábécé 44 betűből áll – a kibővített változat az idegen betűkkel (q, w, x, y) együtt értendő. A leghosszabb betűnk a „dzs”! 🔤"] },
+  { q: ["ki festette a csillagos éjszakát", "csillagos éj", "ki volt van gogh"],
+    a: ["A Csillagos éjt Vincent van Gogh festette 1889-ben. Életében alig adott el festményt – ma a képei a világ legdrágábbjai közé tartoznak! 🌌🎨"] },
+  { q: ["ki volt picasso", "pablo picasso"],
+    a: ["Pablo Picasso (1881–1973) spanyol festő, a kubizmus megteremtője, a 20. század legnagyobb hatású művésze. Több mint 20 000 művet alkotott! 🎨"] },
+  { q: ["ki volt michelangelo", "michelangelo"],
+    a: ["Michelangelo (1475–1564) itáliai reneszánsz szobrász és festő. Leghíresebb művei: a Dávid-szobor és a Sixtus-kápolna mennyezetfreskója. 🎨"] },
+
+  // ---------- ÚJ FŐVÁROSOK (v1.1) ----------
+  { q: ["mi argentína fővárosa", "argentína fővárosa"], a: ["Argentína fővárosa Buenos Aires – a tangó szülővárosa! 🇦🇷"] },
+  { q: ["mi dél-korea fővárosa", "dél korea fővárosa", "korea fővárosa"], a: ["Dél-Korea fővárosa Szöul, a K-pop és a technológia központja. 🇰🇷"] },
+  { q: ["mi thaiföld fővárosa", "thaiföld fővárosa"], a: ["Thaiföld fővárosa Bangkok. Hivatalos teljes neve a világ leghosszabb városneve – 168 betű! 🇹🇭"] },
+  { q: ["mi vietnám fővárosa", "vietnám fővárosa"], a: ["Vietnám fővárosa Hanoi. 🇻🇳"] },
+  { q: ["mi új-zéland fővárosa", "új zéland fővárosa"], a: ["Új-Zéland fővárosa Wellington – a világ legdélibb fővárosa! 🇳🇿"] },
+  { q: ["mi kuba fővárosa", "kuba fővárosa"], a: ["Kuba fővárosa Havanna. 🇨🇺"] },
+  { q: ["mi indonézia fővárosa", "indonézia fővárosa"], a: ["Indonézia fővárosa Jakarta, de épül az új főváros, Nusantara is, mert Jakarta lassan süllyed! 🇮🇩"] },
+  { q: ["mi marokkó fővárosa", "marokkó fővárosa"], a: ["Marokkó fővárosa Rabat. (Nem Casablanca, az csak a legnagyobb városa!) 🇲🇦"] },
+
+  // ---------- SPORT (v1.1) ----------
+  { q: ["milyen hosszú a maraton", "maraton távja", "hány km a maraton"],
+    a: ["A maratoni táv 42 195 méter. A legenda szerint az ókori görög futár, Pheidippidész ekkora távot futott Marathóntól Athénig a győzelem hírével. 🏃"] },
+  { q: ["hány játékos van egy kosárcsapatban", "kosárlabda játékosok"],
+    a: ["Kosárlabdában 5 játékos van a pályán csapatonként. 🏀"] },
+  { q: ["hány játékos van egy kézilabdacsapatban", "kézilabda játékosok"],
+    a: ["Kézilabdában 7 játékos van a pályán csapatonként, a kapussal együtt. 🤾"] },
+  { q: ["mikor lesz a következő olimpia", "következő olimpia"],
+    a: ["A következő nyári olimpiát 2028-ban Los Angeles rendezi, a következő téli olimpia pedig 2030-ban a francia Alpokban lesz. 🏅"] },
+
+  // ---------- ÁLLATOK (v1.1) ----------
+  { q: ["melyik állat él a legtovább", "leghosszabb életű állat"],
+    a: ["A grönlandi cápa akár 400 évig is élhet – ő a leghosszabb életű gerinces! A szárazföldön az óriásteknősök a rekorderek 150-200 évvel. 🦈🐢"] },
+  { q: ["mi a leglassabb állat", "leglassabb állat"],
+    a: ["A háromujjú lajhár a leglassabb emlős: csúcssebessége kb. 0,27 km/h. Annyira lassú, hogy moha nő a bundájában! 🦥"] },
+  { q: ["tud a strucc repülni", "repül a strucc"],
+    a: ["Nem, a strucc nem tud repülni – viszont 70 km/h-val fut, és ő a világ legnagyobb madara! 🪶 (És nem, nem dugja a fejét a homokba – ez tévhit!)"] },
+  { q: ["miért dorombol a macska", "macska dorombolás"],
+    a: ["A macska általában elégedettségében dorombol, de gyógyulás közben és stresszhelyzetben is – a dorombolás rezgése segítheti a csontok és izmok regenerálódását! 🐈"] },
+  { q: ["miért csóválja a kutya a farkát", "kutya farokcsóválás"],
+    a: ["A farokcsóválás a kutya érzelmeit jelzi – legtöbbször örömöt, izgatottságot. Érdekesség: ha inkább jobbra csóvál, az pozitív érzelmet jelez! 🐕"] },
+  { q: ["melyik a legokosabb állat", "legokosabb állat"],
+    a: ["Az ember után a csimpánzokat, a delfineket, az elefántokat és a hollókat tartják a legokosabbaknak. A polip is zseni: kinyitja a befőttesüveget belülről! 🐬🐙"] },
+
+  // ---------- GASZTRO, HÉTKÖZNAPI (v1.1) ----------
+  { q: ["miből készül a kenyér", "hogyan készül a kenyér"],
+    a: ["A kenyér alapja a liszt, a víz, az élesztő (vagy kovász) és a só. Az élesztő gázbuborékokat termel – ettől kel meg a tészta! 🍞"] },
+  { q: ["honnan származik a pizza", "pizza eredete", "ki találta fel a pizzát"],
+    a: ["A mai pizza Nápolyból származik. A leghíresebb, a Margherita 1889-ben készült Margit királyné tiszteletére – az olasz zászló színeivel: paradicsom, mozzarella, bazsalikom! 🍕🇮🇹"] },
+  { q: ["mi a lángos", "lángos"],
+    a: ["A lángos tipikus magyar étel: olajban kisütött kelt tészta, klasszikusan fokhagymával, tejföllel és sajttal. A strandok elmaradhatatlan kelléke! 😋"] },
+  { q: ["mi a kürtőskalács", "kürtőskalács"],
+    a: ["A kürtőskalács erdélyi eredetű, parázs felett sütött, kívül karamellizált cukros kalács. A vásárok illatos sztárja! 🍩✨"] },
+  { q: ["mennyi vizet igyunk naponta", "napi vízfogyasztás", "mennyi vizet kell inni"],
+    a: ["Általános ajánlás napi kb. 2-2,5 liter folyadék, melegben és sportolásnál több. A szomjúság már az enyhe kiszáradás jele! 💧"] },
+  { q: ["hány lépést tegyünk naponta", "napi lépésszám", "10000 lépés"],
+    a: ["A híres 10 000 lépés jó cél, de a kutatások szerint már napi 7000-8000 lépés is jelentősen javítja az egészséget. A lényeg: mozogj minden nap! 🚶"] },
+  { q: ["miért kell fogat mosni", "fogmosás"],
+    a: ["A fogmosás eltávolítja a lepedéket, amelyben a baktériumok savat termelnek és lyukat marnak a fogba. Naponta kétszer, 2-2 percig ajánlott! 🦷🪥"] },
 ];
