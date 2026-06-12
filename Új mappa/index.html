@@ -1,0 +1,255 @@
+<!DOCTYPE html>
+<html lang="hu">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Magic AI 1.2 🪄 – Saját fejlesztésű AI</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+  <!-- animált háttér -->
+  <div class="aurora" aria-hidden="true">
+    <span class="blob b1"></span>
+    <span class="blob b2"></span>
+    <span class="blob b3"></span>
+  </div>
+
+  <div class="app">
+
+    <!-- MAGIC ISLAND – állapotjelző sziget a képernyő tetején -->
+    <div id="magic-island" class="magic-island" aria-live="polite">
+      <span class="mi-icon">🪄</span><span class="mi-text"></span>
+    </div>
+
+    <!-- FEJLÉC -->
+    <header class="header">
+      <div class="logo">🪄</div>
+      <div class="header-texts">
+        <h1>Magic AI <span class="version-badge">v1.2</span></h1>
+        <div class="status"><span class="dot"></span> Online – teljesen helyben fut, API nélkül</div>
+      </div>
+      <div class="stats">
+        <div><b id="stat-kb">0</b><br>tudástéma</div>
+        <div><b id="stat-learned">0</b><br>tanult tudás</div>
+      </div>
+    </header>
+
+    <!-- FÜLEK -->
+    <nav class="tabs">
+      <button class="tab-btn active" data-tab="tab-chat">💬 Beszélgetés</button>
+      <button class="tab-btn" data-tab="tab-teach">✏️ Tanítás</button>
+      <button class="tab-btn" data-tab="tab-knowledge">🧠 Tudástár</button>
+      <button class="tab-btn" data-tab="tab-settings">⚙️ Beállítások</button>
+    </nav>
+
+    <!-- CHAT -->
+    <section id="tab-chat" class="tab-panel active">
+      <div id="chat-messages"></div>
+
+      <div class="suggestions">
+        <button class="chip">Mi Franciaország fővárosa?</button>
+        <button class="chip">Mik a friss hírek?</button>
+        <button class="chip">Mondj egy viccet!</button>
+        <button class="chip">Milyen idő van Budapesten?</button>
+        <button class="chip">Milyen weboldalon találok recepteket?</button>
+        <button class="chip">Mi az a kvantumszámítógép?</button>
+        <button class="chip">Beszélj viccesen!</button>
+      </div>
+
+      <div class="input-bar">
+
+        <!-- MAGIC ANIMATION – hullámzó tenger a beviteli sáv felett -->
+        <div id="magic-ocean" class="magic-ocean" aria-hidden="true">
+          <svg class="wave w-back" viewBox="0 0 2400 60" preserveAspectRatio="none">
+            <path d="M0 32 Q75 14 150 32 T300 32 T450 32 T600 32 T750 32 T900 32 T1050 32 T1200 32 T1350 32 T1500 32 T1650 32 T1800 32 T1950 32 T2100 32 T2250 32 T2400 32 V60 H0 Z"/>
+          </svg>
+          <svg class="wave w-mid" viewBox="0 0 2400 60" preserveAspectRatio="none">
+            <path d="M0 30 Q75 12 150 30 T300 30 T450 30 T600 30 T750 30 T900 30 T1050 30 T1200 30 T1350 30 T1500 30 T1650 30 T1800 30 T1950 30 T2100 30 T2250 30 T2400 30 V60 H0 Z"/>
+          </svg>
+          <svg class="wave w-front" viewBox="0 0 2400 60" preserveAspectRatio="none">
+            <path d="M0 28 Q75 10 150 28 T300 28 T450 28 T600 28 T750 28 T900 28 T1050 28 T1200 28 T1350 28 T1500 28 T1650 28 T1800 28 T1950 28 T2100 28 T2250 28 T2400 28 V60 H0 Z"/>
+          </svg>
+          <span class="o-bubble ob1"></span>
+          <span class="o-bubble ob2"></span>
+          <span class="o-bubble ob3"></span>
+        </div>
+
+        <!-- FELOLVASÁS – beszélő fej buborékban a tenger felett -->
+        <div id="speak-face" class="speak-face" aria-hidden="true">
+          <svg viewBox="0 0 64 64" width="54" height="54">
+            <defs>
+              <linearGradient id="sf-skin" x1="0" y1="0" x2="1" y2="1">
+                <stop offset="0" stop-color="#a78bfa"/>
+                <stop offset="1" stop-color="#d946ef"/>
+              </linearGradient>
+            </defs>
+            <circle cx="32" cy="32" r="25" fill="url(#sf-skin)"/>
+            <g class="sf-eyes">
+              <circle cx="23" cy="27" r="3.4" fill="#fff"/>
+              <circle cx="41" cy="27" r="3.4" fill="#fff"/>
+              <circle cx="23.8" cy="27.8" r="1.7" fill="#1e1b34"/>
+              <circle cx="41.8" cy="27.8" r="1.7" fill="#1e1b34"/>
+            </g>
+            <ellipse cx="17.5" cy="36" rx="3.4" ry="2.1" fill="#fff" opacity=".35"/>
+            <ellipse cx="46.5" cy="36" rx="3.4" ry="2.1" fill="#fff" opacity=".35"/>
+            <path class="sf-smile" d="M22 39 Q32 49 42 39" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round"/>
+            <ellipse class="sf-mouth" id="sf-mouth" cx="32" cy="43" rx="6" ry="1.5" fill="#3b1d54"/>
+          </svg>
+        </div>
+
+        <textarea id="chat-input" rows="1" placeholder="Írj egy üzenetet... (Enter = küldés)"></textarea>
+        <button id="send-btn" title="Küldés">➤</button>
+      </div>
+    </section>
+
+    <!-- TANÍTÁS -->
+    <section id="tab-teach" class="tab-panel">
+      <div class="panel-inner">
+        <h2>✏️ Taníts meg valamire!</h2>
+        <p class="panel-desc">
+          Írd be a kérdést és a választ, amit szeretnél, hogy tudjak.
+          A tanult tudás <strong>elsőbbséget élvez</strong> a beépített tudással szemben,
+          így a hibáimat is így javíthatod ki. Minden a böngésződben tárolódik.
+        </p>
+
+        <div class="field">
+          <label for="teach-q">Kérdés</label>
+          <input id="teach-q" type="text" placeholder="pl. Mi a kedvenc színem?">
+        </div>
+
+        <div class="field">
+          <label for="teach-a">Válasz</label>
+          <textarea id="teach-a" placeholder="pl. A kedvenc színed a kék! 💙"></textarea>
+        </div>
+
+        <button id="teach-save" class="btn-small">🧠 Megtanulom!</button>
+        <span id="teach-status" class="teach-status"></span>
+      </div>
+    </section>
+
+    <!-- TUDÁSTÁR -->
+    <section id="tab-knowledge" class="tab-panel">
+      <div class="panel-inner">
+        <h2>🧠 Tanult tudás</h2>
+        <p class="panel-desc">
+          Itt látod mindazt, amire te tanítottál. Törölhetsz belőle,
+          elmentheted fájlba, vagy visszatöltheted egy másik gépen.
+        </p>
+
+        <div class="knowledge-toolbar">
+          <input id="learned-search" type="text" placeholder="🔍 Keresés a tanult tudásban...">
+          <button id="btn-export" class="btn-small btn-ghost">📤 Exportálás</button>
+          <button id="btn-import" class="btn-small btn-ghost">📥 Importálás</button>
+          <button id="btn-clear-all" class="btn-small btn-danger">🗑️ Összes törlése</button>
+          <input id="import-file" type="file" accept=".json" hidden>
+        </div>
+
+        <div id="learned-list"></div>
+      </div>
+    </section>
+
+    <!-- BEÁLLÍTÁSOK -->
+    <section id="tab-settings" class="tab-panel">
+      <div class="panel-inner">
+        <h2>⚙️ Beállítások</h2>
+        <p class="panel-desc">Szabd személyre a Magic AI-t! Minden beállítás a böngésződben tárolódik.</p>
+
+        <div class="setting-group">
+          <h3>🎨 Téma</h3>
+          <div class="setting-options">
+            <button class="setting-chip theme-chip" data-theme="light">☀️ Világos</button>
+            <button class="setting-chip theme-chip" data-theme="dark">🌙 Sötét</button>
+          </div>
+        </div>
+
+        <div class="setting-group">
+          <h3>🎭 Beszédstílus</h3>
+          <p class="setting-desc">Így fogok veled beszélni a chatben. Parancsból is váltható, pl. „beszélj viccesen!”</p>
+          <div class="setting-options">
+            <button class="setting-chip style-chip" data-style="normal">💬 Normál</button>
+            <button class="setting-chip style-chip" data-style="vicces">😜 Vicces</button>
+            <button class="setting-chip style-chip" data-style="komoly">🧐 Komoly</button>
+            <button class="setting-chip style-chip" data-style="kedves">🥰 Kedves</button>
+            <button class="setting-chip style-chip" data-style="tudos">🤓 Tudós</button>
+            <button class="setting-chip style-chip" data-style="kaloz">🏴‍☠️ Kalóz</button>
+          </div>
+        </div>
+
+        <div class="setting-group">
+          <h3>🏝️ Magic Island</h3>
+          <div class="setting-row">
+            <p class="setting-desc">
+              Ha kérdezel valamit, a képernyő tetején egy kis szigeten mutatom,
+              épp mit csinálok: gondolkozom, utánanézek a neten, híreket keresek...
+            </p>
+            <label class="switch">
+              <input type="checkbox" id="island-toggle">
+              <span class="slider"></span>
+            </label>
+          </div>
+        </div>
+
+        <div class="setting-group">
+          <h3>🌊 Magic Animation</h3>
+          <div class="setting-row">
+            <p class="setting-desc">
+              Tengeres varázslat: amikor elküldesz egy kérdést, az üzenetsáv
+              hullámzó tengerré változik, és amikor megérkezik a válasz,
+              a tenger elsüllyed.
+            </p>
+            <label class="switch">
+              <input type="checkbox" id="anim-toggle">
+              <span class="slider"></span>
+            </label>
+          </div>
+        </div>
+
+        <div class="setting-group">
+          <h3>🔄 Frissítés</h3>
+          <p class="setting-desc">
+            Jelenlegi verzió: <b id="upd-current"></b>. Innen töltheted le a legújabb
+            verziót – nem kell hozzá a GitHub-oldalra menned!
+          </p>
+          <div class="setting-options">
+            <button id="upd-check" class="btn-small">🔍 Frissítés keresése</button>
+            <span id="upd-status" class="teach-status"></span>
+          </div>
+          <div id="upd-found" class="upd-box" hidden>
+            <div class="upd-head">🎁 Új verzió érhető el: <b id="upd-version"></b></div>
+            <p id="upd-notes" class="setting-desc"></p>
+            <button id="upd-download" class="btn-small">⬇️ Új verzió letöltése</button>
+            <p class="setting-desc">
+              A letöltött ZIP-et csomagold ki, és másold a fájlokat a Magic AI
+              mappájába a régiek helyére – kész is a frissítés! 🪄
+            </p>
+          </div>
+        </div>
+
+        <div class="setting-group">
+          <h3>🔊 Felolvasás</h3>
+          <div class="setting-row">
+            <p class="setting-desc">
+              Hangosan felolvasom a válaszaimat. Amíg beszélek, a hullámzó
+              tenger felett egy buborékban egy mosolygó kis fej jelenik meg,
+              és a szavaimnak megfelelően mozgatja a száját.
+            </p>
+            <label class="switch">
+              <input type="checkbox" id="speak-toggle">
+              <span class="slider"></span>
+            </label>
+          </div>
+        </div>
+      </div>
+    </section>
+
+  </div>
+
+  <script src="knowledge.js"></script>
+  <script src="knowledge2.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
