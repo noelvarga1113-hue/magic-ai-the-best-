@@ -1,0 +1,679 @@
+<!DOCTYPE html>
+<html lang="hu">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <!-- Mindig a friss fájlok töltődjenek be frissítés után (ne a böngésző gyorsítótárából) -->
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+  <meta http-equiv="Pragma" content="no-cache">
+  <meta http-equiv="Expires" content="0">
+  <title>Magic AI 2.2 🪄 – Saját fejlesztésű AI</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css?v=2.2.3">
+</head>
+<body>
+
+  <!-- INDÍTÓ ANIMÁCIÓ – ~5 mp-es villódzó bevezető, kattintásra kihagyható -->
+  <div id="splash" class="splash" role="presentation">
+    <span class="splash-spark s1"></span>
+    <span class="splash-spark s2"></span>
+    <span class="splash-spark s3"></span>
+    <span class="splash-spark s4"></span>
+    <span class="splash-spark s5"></span>
+    <span class="splash-spark s6"></span>
+    <div class="splash-inner">
+      <div class="splash-logo">🪄</div>
+      <h1 class="splash-title" data-text="Magic AI">Magic AI</h1>
+      <div class="splash-tag">a saját fejlesztésű mesterséges intelligenciád</div>
+      <div class="splash-bar"><span class="splash-bar-fill"></span></div>
+    </div>
+    <div class="splash-skip">koppints a kihagyáshoz</div>
+  </div>
+
+  <!-- animált háttér -->
+  <div class="aurora" aria-hidden="true">
+    <span class="blob b1"></span>
+    <span class="blob b2"></span>
+    <span class="blob b3"></span>
+  </div>
+
+  <div class="app">
+
+    <!-- MAGIC ISLAND – állapotjelző sziget a képernyő tetején -->
+    <div id="magic-island" class="magic-island" aria-live="polite">
+      <span class="mi-icon">🪄</span><span class="mi-text"></span>
+    </div>
+
+    <!-- FEJLÉC -->
+    <header class="header">
+      <div class="logo">🪄</div>
+      <div class="header-texts">
+        <h1>Magic AI <span class="version-badge">v2.2</span></h1>
+        <div class="status"><span class="dot"></span> Online – teljesen helyben fut, API nélkül</div>
+      </div>
+      <div class="stats">
+        <div><b id="stat-kb">–</b><br><span data-i18n="stat_model">AI-modell</span></div>
+        <div><b id="stat-learned">0</b><br><span data-i18n="stat_learned">tanult tudás</span></div>
+      </div>
+    </header>
+
+    <!-- FÜLEK -->
+    <nav class="tabs">
+      <button class="tab-btn active" data-tab="tab-chat" data-i18n="tab_chat">💬 Beszélgetés</button>
+      <button class="tab-btn" data-tab="tab-teach" data-i18n="tab_teach">✏️ Tanítás</button>
+      <button class="tab-btn" data-tab="tab-knowledge" data-i18n="tab_knowledge">🧠 Tudástár</button>
+      <button class="tab-btn" data-tab="tab-settings" data-i18n="tab_settings">⚙️ Beállítások</button>
+      <!-- Csak az admin e-mail címmel bejelentkezve jelenik meg (app.js állítja be) -->
+      <button class="tab-btn admin-only" id="admin-tab-btn" data-tab="tab-admin" data-i18n="tab_admin" hidden>🛡️ Admin</button>
+    </nav>
+
+    <!-- EXTRA FUNKCIÓK SÁV -->
+    <div class="extras-bar">
+      <span class="extras-label" data-i18n="extras_label">✨ Extra funkciók</span>
+      <div class="extras-scroll">
+        <button class="extra-btn" id="extra-newchat" data-i18n="extra_newchat">➕ Új chat</button>
+        <button class="extra-btn" id="extra-history" data-i18n="extra_history">📜 Előző chatek</button>
+        <button class="extra-btn" id="extra-group"><span data-i18n="extra_group">👥 Group</span> <span class="beta-badge">béta</span></button>
+        <button class="extra-btn" id="extra-homework" data-i18n="extra_homework">✍️ Házi feladat</button>
+        <button class="extra-btn" id="extra-aimodel"><span data-i18n="extra_aimodel">🤖 AI-modell</span> <span class="beta-badge">béta</span></button>
+      </div>
+    </div>
+
+    <!-- CHAT -->
+    <section id="tab-chat" class="tab-panel active">
+      <div id="chat-messages"></div>
+
+      <div class="suggestions">
+        <button class="chip">Mi Franciaország fővárosa?</button>
+        <button class="chip">Mik a friss hírek?</button>
+        <button class="chip">Mondj egy viccet!</button>
+        <button class="chip">Milyen idő van Budapesten?</button>
+        <button class="chip">Milyen weboldalon találok recepteket?</button>
+        <button class="chip">Mi az a kvantumszámítógép?</button>
+        <button class="chip">Beszélj viccesen!</button>
+      </div>
+
+      <div class="input-bar">
+
+        <!-- MAGIC ANIMATION – hullámzó tenger a beviteli sáv felett -->
+        <div id="magic-ocean" class="magic-ocean" aria-hidden="true">
+          <svg class="wave w-back" viewBox="0 0 2400 60" preserveAspectRatio="none">
+            <path d="M0 32 Q75 14 150 32 T300 32 T450 32 T600 32 T750 32 T900 32 T1050 32 T1200 32 T1350 32 T1500 32 T1650 32 T1800 32 T1950 32 T2100 32 T2250 32 T2400 32 V60 H0 Z"/>
+          </svg>
+          <svg class="wave w-mid" viewBox="0 0 2400 60" preserveAspectRatio="none">
+            <path d="M0 30 Q75 12 150 30 T300 30 T450 30 T600 30 T750 30 T900 30 T1050 30 T1200 30 T1350 30 T1500 30 T1650 30 T1800 30 T1950 30 T2100 30 T2250 30 T2400 30 V60 H0 Z"/>
+          </svg>
+          <svg class="wave w-front" viewBox="0 0 2400 60" preserveAspectRatio="none">
+            <path d="M0 28 Q75 10 150 28 T300 28 T450 28 T600 28 T750 28 T900 28 T1050 28 T1200 28 T1350 28 T1500 28 T1650 28 T1800 28 T1950 28 T2100 28 T2250 28 T2400 28 V60 H0 Z"/>
+          </svg>
+          <span class="o-bubble ob1"></span>
+          <span class="o-bubble ob2"></span>
+          <span class="o-bubble ob3"></span>
+        </div>
+
+        <!-- FELOLVASÁS – beszélő fej buborékban a tenger felett -->
+        <div id="speak-face" class="speak-face" aria-hidden="true">
+          <svg viewBox="0 0 64 64" width="54" height="54">
+            <defs>
+              <linearGradient id="sf-skin" x1="0" y1="0" x2="1" y2="1">
+                <stop offset="0" stop-color="#a78bfa"/>
+                <stop offset="1" stop-color="#d946ef"/>
+              </linearGradient>
+            </defs>
+            <circle cx="32" cy="32" r="25" fill="url(#sf-skin)"/>
+            <g class="sf-eyes">
+              <circle cx="23" cy="27" r="3.4" fill="#fff"/>
+              <circle cx="41" cy="27" r="3.4" fill="#fff"/>
+              <circle cx="23.8" cy="27.8" r="1.7" fill="#1e1b34"/>
+              <circle cx="41.8" cy="27.8" r="1.7" fill="#1e1b34"/>
+            </g>
+            <ellipse cx="17.5" cy="36" rx="3.4" ry="2.1" fill="#fff" opacity=".35"/>
+            <ellipse cx="46.5" cy="36" rx="3.4" ry="2.1" fill="#fff" opacity=".35"/>
+            <path class="sf-smile" d="M22 39 Q32 49 42 39" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round"/>
+            <ellipse class="sf-mouth" id="sf-mouth" cx="32" cy="43" rx="6" ry="1.5" fill="#3b1d54"/>
+          </svg>
+        </div>
+
+        <textarea id="chat-input" rows="1" data-i18n-ph="chat_ph" placeholder="Írj egy üzenetet... (Enter = küldés)"></textarea>
+        <button id="send-btn" title="Küldés">➤</button>
+      </div>
+    </section>
+
+    <!-- TANÍTÁS -->
+    <section id="tab-teach" class="tab-panel">
+      <div class="panel-inner">
+        <h2>✏️ Taníts meg valamire!</h2>
+        <p class="panel-desc">
+          Írd be a kérdést és a választ, amit szeretnél, hogy tudjak.
+          A tanult tudás <strong>elsőbbséget élvez</strong> az AI-modell válaszával szemben,
+          így a hibáimat is így javíthatod ki. Minden a böngésződben tárolódik.
+        </p>
+
+        <div class="field">
+          <label for="teach-q">Kérdés</label>
+          <input id="teach-q" type="text" placeholder="pl. Mi a kedvenc színem?">
+        </div>
+
+        <div class="field">
+          <label for="teach-a">Válasz</label>
+          <textarea id="teach-a" placeholder="pl. A kedvenc színed a kék! 💙"></textarea>
+        </div>
+
+        <button id="teach-save" class="btn-small">🧠 Megtanulom!</button>
+        <span id="teach-status" class="teach-status"></span>
+      </div>
+    </section>
+
+    <!-- TUDÁSTÁR -->
+    <section id="tab-knowledge" class="tab-panel">
+      <div class="panel-inner">
+        <h2>🧠 Tanult tudás</h2>
+        <p class="panel-desc">
+          Itt látod mindazt, amire te tanítottál. Törölhetsz belőle,
+          elmentheted fájlba, vagy visszatöltheted egy másik gépen.
+        </p>
+
+        <div class="knowledge-toolbar">
+          <input id="learned-search" type="text" placeholder="🔍 Keresés a tanult tudásban...">
+          <button id="btn-export" class="btn-small btn-ghost">📤 Exportálás</button>
+          <button id="btn-import" class="btn-small btn-ghost">📥 Importálás</button>
+          <button id="btn-clear-all" class="btn-small btn-danger">🗑️ Összes törlése</button>
+          <input id="import-file" type="file" accept=".json" hidden>
+        </div>
+
+        <div id="learned-list"></div>
+      </div>
+    </section>
+
+    <!-- BEÁLLÍTÁSOK -->
+    <section id="tab-settings" class="tab-panel">
+      <div class="panel-inner">
+        <h2 data-i18n="set_title">⚙️ Beállítások</h2>
+        <p class="panel-desc">Szabd személyre a Magic AI-t! Minden beállítás a böngésződben tárolódik.</p>
+
+        <div class="setting-group">
+          <h3 data-i18n="set_account">👤 Fiók</h3>
+          <p class="setting-desc">
+            Bejelentkezve mint <b id="account-name">–</b>
+            <span id="account-email" class="account-email"></span>.
+            A beszélgetéseid és csoportjaid ehhez a fiókhoz tartoznak.
+          </p>
+          <button id="account-logout" class="btn-small btn-danger">🚪 Kijelentkezés</button>
+        </div>
+
+        <div class="setting-group">
+          <h3 data-i18n="set_theme">🎨 Téma</h3>
+          <div class="setting-options">
+            <button class="setting-chip theme-chip" data-theme="light" data-i18n="theme_light">☀️ Világos</button>
+            <button class="setting-chip theme-chip" data-theme="dark" data-i18n="theme_dark">🌙 Sötét</button>
+          </div>
+        </div>
+
+        <div class="setting-group">
+          <h3 data-i18n="set_lang">🌐 Nyelv / Language</h3>
+          <p class="setting-desc" data-i18n="set_lang_desc">Válaszd ki a rendszer nyelvét. Az AI ezen a nyelven válaszol, és az internetes keresés is ezt használja.</p>
+          <div class="setting-options">
+            <select id="lang-select" class="lang-select" aria-label="Nyelv / Language">
+              <option value="hu">🇭🇺 Magyar</option>
+              <option value="en">🇬🇧 English</option>
+              <option value="de">🇩🇪 Deutsch</option>
+              <option value="ru">🇷🇺 Русский</option>
+              <option value="pt">🇵🇹 Português</option>
+              <option value="es">🇪🇸 Español</option>
+              <option value="fr">🇫🇷 Français</option>
+              <option value="it">🇮🇹 Italiano</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="setting-group">
+          <h3 data-i18n="set_style">🎭 Beszédstílus</h3>
+          <p class="setting-desc">Így fogok veled beszélni a chatben. Parancsból is váltható, pl. „beszélj viccesen!”</p>
+          <div class="setting-options">
+            <button class="setting-chip style-chip" data-style="normal">💬 Normál</button>
+            <button class="setting-chip style-chip" data-style="vicces">😜 Vicces</button>
+            <button class="setting-chip style-chip" data-style="komoly">🧐 Komoly</button>
+            <button class="setting-chip style-chip" data-style="kedves">🥰 Kedves</button>
+            <button class="setting-chip style-chip" data-style="tudos">🤓 Tudós</button>
+            <button class="setting-chip style-chip" data-style="kaloz">🏴‍☠️ Kalóz</button>
+          </div>
+        </div>
+
+        <div class="setting-group">
+          <h3 data-i18n="set_island">🏝️ Magic Island</h3>
+          <div class="setting-row">
+            <p class="setting-desc">
+              Ha kérdezel valamit, a képernyő tetején egy kis szigeten mutatom,
+              épp mit csinálok: gondolkozom, utánanézek a neten, híreket keresek...
+            </p>
+            <label class="switch">
+              <input type="checkbox" id="island-toggle">
+              <span class="slider"></span>
+            </label>
+          </div>
+        </div>
+
+        <div class="setting-group">
+          <h3 data-i18n="set_anim">🌊 Magic Animation</h3>
+          <div class="setting-row">
+            <p class="setting-desc">
+              Tengeres varázslat: amikor elküldesz egy kérdést, az üzenetsáv
+              hullámzó tengerré változik, és amikor megérkezik a válasz,
+              a tenger elsüllyed.
+            </p>
+            <label class="switch">
+              <input type="checkbox" id="anim-toggle">
+              <span class="slider"></span>
+            </label>
+          </div>
+        </div>
+
+        <div class="setting-group">
+          <h3 data-i18n="set_eco">🔋 Energiatakarékos mód</h3>
+          <div class="setting-row">
+            <p class="setting-desc" data-i18n="set_eco_desc">
+              Csökkenti a látványos animációkat (háttér, hullámok) és rövidebb
+              AI-válaszokat kér, így kevesebbet terheli a gépet és kevesebb
+              energiát fogyaszt.
+            </p>
+            <label class="switch">
+              <input type="checkbox" id="eco-toggle">
+              <span class="slider"></span>
+            </label>
+          </div>
+        </div>
+
+        <div class="setting-group">
+          <h3 data-i18n="set_update">🔄 Frissítés</h3>
+          <p class="setting-desc">
+            Jelenlegi verzió: <b id="upd-current"></b>. Innen töltheted le a legújabb
+            verziót – nem kell hozzá a GitHub-oldalra menned!
+          </p>
+          <div class="setting-options">
+            <button id="upd-check" class="btn-small">🔍 Frissítés keresése</button>
+            <span id="upd-status" class="teach-status"></span>
+          </div>
+          <div id="upd-found" class="upd-box" hidden>
+            <div class="upd-head">🎁 Új verzió érhető el: <b id="upd-version"></b></div>
+            <p id="upd-notes" class="setting-desc"></p>
+            <button id="upd-download" class="btn-small">⬇️ Új verzió letöltése</button>
+            <p class="setting-desc">
+              A letöltött ZIP-et csomagold ki, és másold a fájlokat a Magic AI
+              mappájába a régiek helyére – kész is a frissítés! 🪄
+            </p>
+          </div>
+        </div>
+
+        <div class="setting-group">
+          <h3 data-i18n="set_speak">🔊 Felolvasás</h3>
+          <div class="setting-row">
+            <p class="setting-desc">
+              Hangosan felolvasom a válaszaimat. Amíg beszélek, a hullámzó
+              tenger felett egy buborékban egy mosolygó kis fej jelenik meg,
+              és a szavaimnak megfelelően mozgatja a száját.
+            </p>
+            <label class="switch">
+              <input type="checkbox" id="speak-toggle">
+              <span class="slider"></span>
+            </label>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ADMINISZTRÁCIÓ – CSAK az admin e-mail címmel látható (app.js gondoskodik róla) -->
+    <section id="tab-admin" class="tab-panel">
+      <div class="panel-inner">
+        <h2>🛡️ Adminisztráció</h2>
+        <p class="panel-desc">
+          Üdv, <b>admin</b>! Itt látod a <strong>regisztrált fiókokat</strong> és az adataikat,
+          <strong>e-mailt is küldhetsz nekik</strong>, és fiókonként be-/kikapcsolhatod a
+          <strong>✨ Magic AI plusz</strong> tagságot (csak ezzel érhető el az <strong>Expert AI-modell</strong>).
+          Ez a fül csak a(z)
+          <b id="admin-email-label">noel.varga1113@gmail.com</b> címmel látható – más fiók nem fér hozzá.
+        </p>
+        <p class="admin-caveat">
+          ⚠️ <strong>Fontos:</strong> a Magic AI szerver nélkül, teljesen a böngészőben fut, ezért
+          itt <strong>csak az ezen az eszközön regisztrált fiókok</strong> jelennek meg. A más
+          gépeken/telefonokon létrehozott fiókok ezen a listán nem látszanak. Az e-mailek a saját
+          levelezőprogramodban (vagy Gmailben) nyílnak meg küldésre – a Magic AI maga nem küld levelet.
+        </p>
+
+        <div class="admin-stats" id="admin-stats"></div>
+
+        <div class="admin-toolbar">
+          <input id="admin-search" type="text" placeholder="🔍 Keresés név vagy e-mail szerint…">
+          <button id="admin-refresh" class="btn-small btn-ghost">🔄 Frissítés</button>
+          <button id="admin-mail-all" class="btn-small">✉️ E-mail mindenkinek</button>
+        </div>
+
+        <div id="admin-list" class="admin-list"></div>
+      </div>
+    </section>
+
+  </div>
+
+  <!-- HÁZI FELADAT MODAL -->
+  <div id="hw-modal" class="hw-modal" hidden aria-modal="true" role="dialog">
+    <div class="hw-backdrop"></div>
+    <div class="hw-sheet">
+      <div class="hw-head">
+        <h2>✍️ Házi feladat megoldó</h2>
+        <button class="hw-close" id="hw-close" title="Bezárás">✕</button>
+      </div>
+      <p class="hw-desc">
+        Írd be a feladatot a mezőbe – az <strong>AI-modell</strong> megérti, és <strong>lépésről lépésre megoldja</strong>.
+        Matek, fogalmazás, nyelvtan, irodalom és sok más tárgy. A modell a böngésződben fut; ha kell, az internetről néz utána. 🪄
+        <br><small>📷 A fénykép/kép feltöltése hamarosan érkezik – addig a feladatokat (a matekot is) <strong>írásban</strong> add meg.</small>
+      </p>
+
+      <div class="hw-examples">
+        <span class="hw-examples-label">Próbáld ki:</span>
+        <button class="hw-chip" type="button">2x + 3 = 11</button>
+        <button class="hw-chip" type="button">Mennyi a 200 15%-a?</button>
+        <button class="hw-chip" type="button">Egy téglalap oldalai 4 és 6 cm, mennyi a területe?</button>
+        <button class="hw-chip" type="button">Mennyi a 4, 8 és 6 átlaga?</button>
+        <button class="hw-chip" type="button">Írj egy fogalmazást a barátságról!</button>
+        <button class="hw-chip" type="button">Mi a metafora?</button>
+      </div>
+
+      <!-- KÉSŐBB: a fénykép készítése / kép feltöltése (OCR) ideiglenesen ki van kapcsolva.
+           Visszakapcsoláshoz töröld a `hidden` attribútumot erről a blokkról. Addig a feladatokat
+           (a matekot is) írásban kell beírni. -->
+      <div class="hw-actions" hidden>
+        <label class="hw-pick">
+          📷 Fénykép készítése
+          <input type="file" id="hw-camera" accept="image/*" capture="environment" hidden>
+        </label>
+        <label class="hw-pick hw-pick-ghost">
+          🖼️ Kép feltöltése
+          <input type="file" id="hw-file" accept="image/*" hidden>
+        </label>
+      </div>
+
+      <div class="hw-preview" id="hw-preview" hidden>
+        <img id="hw-img" alt="A beolvasott feladat képe">
+      </div>
+
+      <div class="hw-field">
+        <label for="hw-text">Írd be a feladatot</label>
+        <textarea id="hw-text" rows="3" placeholder="Írd ide a feladatot – pl. „2x + 3 = 11”, „Mennyi a 200 15%-a?” vagy „Írj egy fogalmazást a barátságról!”"></textarea>
+      </div>
+
+      <button class="hw-solve" id="hw-solve">🧠 Megoldás</button>
+      <div class="hw-status" id="hw-status" aria-live="polite"></div>
+      <div class="hw-result" id="hw-result" hidden></div>
+
+      <div class="hw-ai" id="hw-ai">
+        <div class="hw-ai-head">✨ Igazi AI feladatmegoldó <span class="hw-ai-badge">böngészőben fut</span></div>
+        <p class="hw-ai-desc">
+          Tölts le egyszer egy kis AI-modellt, és onnantól <strong>fogalmazást ír</strong>, valamint
+          <strong>matek- és szöveges feladatokat, kérdéseket old meg</strong>
+          <strong>helyben, a böngészőben</strong>, internet és API nélkül. A matek pontos eredményét
+          a beépített motor számolja, az AI pedig elmagyarázza. Az első letöltés nagy, de utána offline is megy.
+          Ez ugyanaz a modell, mint a csevegésben (🤖 AI-modell).
+        </p>
+        <div class="hw-ai-row">
+          <select id="hw-ai-model" class="hw-ai-select"></select>
+          <button class="hw-ai-load" id="hw-ai-load" type="button">⬇️ Modell betöltése</button>
+        </div>
+        <div class="hw-ai-bar" id="hw-ai-bar" hidden><div class="hw-ai-bar-fill" id="hw-ai-bar-fill"></div></div>
+        <div class="hw-ai-status" id="hw-ai-status"></div>
+        <label class="hw-ai-toggle" id="hw-ai-toggle-wrap" hidden>
+          <input type="checkbox" id="hw-ai-toggle" checked>
+          A feladatokat az AI-modell oldja meg
+        </label>
+      </div>
+    </div>
+  </div>
+
+  <!-- AI-MODELL MODAL – a csevegéshez is innen állítható/tölthető a böngészős modell -->
+  <div id="ai-modal" class="hw-modal" hidden aria-modal="true" role="dialog">
+    <div class="hw-backdrop"></div>
+    <div class="hw-sheet">
+      <div class="hw-head">
+        <h2>🤖 AI-modell <span class="beta-badge">béta</span></h2>
+        <button class="hw-close" id="ai-close" title="Bezárás">✕</button>
+      </div>
+      <p class="hw-desc">
+        Válaszd ki és töltsd le egyszer a böngészőben futó AI-modellt – onnantól a
+        <strong>csevegésben is</strong> ez válaszol a kérdéseidre, <strong>helyben</strong>, és ha kell,
+        az <strong>internetről néz utána</strong>.
+        Minél nagyobb a modell, annál okosabb; cserébe nagyobb a letöltés és erősebb gép kell hozzá.
+        Az <strong>Expert</strong> modell csak <strong>✨ Magic AI plusz</strong> tagoknak érhető el. 🪄
+      </p>
+
+      <div class="hw-ai" id="chat-ai">
+        <div class="hw-ai-head">✨ Helyi AI-modell <span class="hw-ai-badge">böngészőben fut</span></div>
+        <p class="hw-ai-desc">
+          Az első letöltés nagyobb, de utána a böngésző elmenti, és <strong>offline is működik</strong>.
+          Ez ugyanaz a modell, amit a Házi feladat megoldó is használ.
+        </p>
+        <div class="hw-ai-row">
+          <select id="chat-ai-model" class="hw-ai-select"></select>
+          <button class="hw-ai-load" id="chat-ai-load" type="button">⬇️ Modell betöltése</button>
+        </div>
+        <div class="hw-ai-bar" id="chat-ai-bar" hidden><div class="hw-ai-bar-fill" id="chat-ai-bar-fill"></div></div>
+        <div class="hw-ai-status" id="chat-ai-status"></div>
+        <label class="hw-ai-toggle" id="chat-ai-toggle-wrap" hidden>
+          <input type="checkbox" id="chat-ai-toggle" checked>
+          Az AI-modell válaszoljon a csevegésben
+        </label>
+      </div>
+    </div>
+  </div>
+
+  <!-- BELÉPÉS / REGISZTRÁCIÓ – telepítés után ez fogad, amíg nincs bejelentkezve -->
+  <div id="auth-screen" class="auth-screen" hidden aria-modal="true" role="dialog">
+    <div class="auth-card">
+      <div class="auth-brand">
+        <span class="auth-logo">🪄</span>
+        <h1>Magic AI <span class="version-badge">v2.2</span></h1>
+        <p>Jelentkezz be vagy regisztrálj, hogy a saját beszélgetéseid és csoportjaid megmaradjanak. 🪄</p>
+      </div>
+
+      <div class="auth-tabs">
+        <button class="auth-tab active" type="button" data-auth="login">Bejelentkezés</button>
+        <button class="auth-tab" type="button" data-auth="register">Regisztráció</button>
+      </div>
+
+      <!-- BEJELENTKEZÉS: csak teljes név + jelszó -->
+      <form id="auth-login" class="auth-form" autocomplete="on">
+        <div class="field">
+          <label for="login-name">Teljes neved</label>
+          <input id="login-name" type="text" autocomplete="name" placeholder="pl. Kovács Anna">
+        </div>
+        <div class="field">
+          <label for="login-pass">Jelszó</label>
+          <input id="login-pass" type="password" autocomplete="current-password" placeholder="A jelszavad">
+        </div>
+        <button type="submit" class="btn-small auth-submit">🔓 Bejelentkezés</button>
+        <div id="login-msg" class="auth-msg"></div>
+      </form>
+
+      <!-- REGISZTRÁCIÓ: teljes név + megszólítás + e-mail + jelszó -->
+      <form id="auth-register" class="auth-form" autocomplete="on" hidden>
+        <div class="field">
+          <label for="reg-name">Teljes neved</label>
+          <input id="reg-name" type="text" autocomplete="name" placeholder="pl. Kovács Anna">
+        </div>
+        <div class="field">
+          <label for="reg-nick">Hogyan szólítson a Magic AI?</label>
+          <input id="reg-nick" type="text" autocomplete="nickname" placeholder="pl. Anna">
+        </div>
+        <div class="field">
+          <label for="reg-email">E-mail címed</label>
+          <input id="reg-email" type="email" autocomplete="email" placeholder="pl. anna@email.hu">
+        </div>
+        <div class="field">
+          <label for="reg-pass">Jelszó</label>
+          <input id="reg-pass" type="password" autocomplete="new-password" placeholder="Legalább 4 karakter">
+        </div>
+        <button type="submit" class="btn-small auth-submit">✨ Fiók létrehozása</button>
+        <div id="register-msg" class="auth-msg"></div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ELŐZŐ CHATEK MODAL -->
+  <div id="history-modal" class="hw-modal" hidden aria-modal="true" role="dialog">
+    <div class="hw-backdrop"></div>
+    <div class="hw-sheet">
+      <div class="hw-head">
+        <h2>📜 Előző chatek</h2>
+        <button class="hw-close" id="history-close" title="Bezárás">✕</button>
+      </div>
+      <p class="hw-desc">
+        Itt találod a korábbi beszélgetéseidet. Kattints egyre, hogy folytasd –
+        ugyanúgy írhatsz bele tovább, mintha el sem hagytad volna. 🪄
+      </p>
+      <button class="btn-small" id="history-new">➕ Új beszélgetés</button>
+      <div id="history-list" class="history-list"></div>
+    </div>
+  </div>
+
+  <!-- GROUP – ONLINE CSOPORTOS CHAT (MOST a fő ablakban, beépített modalban) -->
+  <div id="group-modal" class="hw-modal" hidden aria-modal="true" role="dialog">
+    <div class="hw-backdrop"></div>
+    <div class="hw-sheet gc-sheet">
+      <div class="hw-head">
+        <h2>👥 Group <span class="beta-badge">béta</span></h2>
+        <button class="hw-close" id="group-close" title="Bezárás">✕</button>
+      </div>
+
+      <!-- LOBBI: LÉTREHOZÁS / CSATLAKOZÁS -->
+      <section id="g-setup" class="g-setup">
+        <div class="gcw-tabs">
+          <button class="gcw-tab active" data-mode="create" type="button">✨ Lobbi létrehozása</button>
+          <button class="gcw-tab" data-mode="join" type="button">🚪 Csatlakozás</button>
+        </div>
+
+        <div class="gcw-field">
+          <label for="g-name">A neved (ezt látják a többiek)</label>
+          <input id="g-name" type="text" placeholder="pl. Kovács Anna" autocomplete="off">
+        </div>
+
+        <div class="gcw-field" id="g-code-field" hidden>
+          <label for="g-code">Lobbi kód</label>
+          <input id="g-code" type="text" placeholder="pl. 7K3PQ2" maxlength="10" autocomplete="off" autocapitalize="characters">
+        </div>
+
+        <button id="g-go" class="gcw-btn" type="button">✨ Lobbi létrehozása</button>
+        <div id="g-msg" class="gcw-msg"></div>
+
+        <p class="gcw-note">
+          A lobbiban <strong>az AI-tól kérdeztek</strong> – mindenki látja a kérdéseket és a válaszokat.
+          A választ a saját géped számolja ki, így <strong>egyedül is azonnal válaszol</strong>.
+          Az üzeneteket egy ingyenes, nyilvános szolgáltatás (ntfy.sh) továbbítja, ezért
+          <strong>ne küldj benne érzékeny adatot</strong>.
+        </p>
+      </section>
+
+      <!-- CHAT -->
+      <section id="g-chat" class="g-chat" hidden>
+        <div class="gc-room">
+          <div class="gcw-room-info">
+            <span class="gc-room-name">Lobbi</span>
+            <button id="g-copy" class="gcw-copy" type="button" title="Lobbi kód másolása">📋 <span class="g-code-txt"></span></button>
+          </div>
+          <button id="g-leave" class="gcw-leave" type="button">Kilépés</button>
+        </div>
+        <div id="gc-messages" class="gc-messages"></div>
+        <div class="gc-input">
+          <textarea id="gc-text" rows="1" placeholder="Kérdezz az AI-tól… (Enter = küldés)"></textarea>
+          <button id="gc-send" type="button" title="Küldés">➤</button>
+        </div>
+      </section>
+    </div>
+  </div>
+
+  <!-- E-MAIL KÜLDÉSE (admin) – a leveled a saját levelezőprogramodban nyílik meg -->
+  <div id="mail-modal" class="hw-modal" hidden aria-modal="true" role="dialog">
+    <div class="hw-backdrop"></div>
+    <div class="hw-sheet">
+      <div class="hw-head">
+        <h2>✉️ E-mail küldése</h2>
+        <button class="hw-close" id="mail-close" title="Bezárás">✕</button>
+      </div>
+      <p class="hw-desc">
+        Töltsd ki a tárgyat és az üzenetet, majd nyisd meg a levelet a saját
+        <strong>levelezőprogramodban</strong> vagy a <strong>Gmailben</strong> – ott véglegesítheted
+        és elküldheted. (A Magic AI szerver nélkül fut, ezért közvetlenül nem küld levelet.)
+      </p>
+
+      <div class="hw-field">
+        <label>Címzett(ek)</label>
+        <div id="mail-to" class="mail-to"></div>
+      </div>
+      <div class="hw-field">
+        <label for="mail-subject">Tárgy</label>
+        <input id="mail-subject" type="text" placeholder="pl. Magic AI – fontos infó">
+      </div>
+      <div class="hw-field">
+        <label for="mail-body">Üzenet</label>
+        <textarea id="mail-body" rows="6" placeholder="Írd ide az üzenetet…"></textarea>
+      </div>
+
+      <div class="mail-actions">
+        <button id="mail-open-default" class="hw-solve">📧 Megnyitás a levelezőben</button>
+        <button id="mail-open-gmail" class="btn-small btn-ghost">✉️ Megnyitás Gmailben</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- KITILTÁS (admin) – válassz: ideiglenes (időre) VAGY végleges (indokkal) -->
+  <div id="ban-modal" class="hw-modal" hidden aria-modal="true" role="dialog">
+    <div class="hw-backdrop"></div>
+    <div class="hw-sheet">
+      <div class="hw-head">
+        <h2>🚫 Felhasználó kitiltása</h2>
+        <button class="hw-close" id="ban-close" title="Bezárás">✕</button>
+      </div>
+      <p class="hw-desc">
+        Kit tiltasz ki: <b id="ban-who">–</b>. Válaszd ki a kitiltás módját – a kitiltott
+        fiók nem tud belépni, amíg fel nem oldod (vagy le nem jár az idő).
+      </p>
+
+      <div class="ban-modes">
+        <label class="ban-mode">
+          <input type="radio" name="ban-type" value="temp" checked>
+          <span>⏳ <b>Ideiglenes</b> – egy időre kizárjuk, utána magától visszatérhet.</span>
+        </label>
+        <label class="ban-mode">
+          <input type="radio" name="ban-type" value="perm">
+          <span>⛔ <b>Végleges, indokkal</b> – írd meg, miért tiltod ki.</span>
+        </label>
+      </div>
+
+      <div class="hw-field" id="ban-dur-field">
+        <label for="ban-duration">Időtartam</label>
+        <select id="ban-duration" class="lang-select">
+          <option value="3600000">1 óra</option>
+          <option value="86400000" selected>1 nap</option>
+          <option value="259200000">3 nap</option>
+          <option value="604800000">1 hét</option>
+          <option value="2592000000">30 nap</option>
+        </select>
+      </div>
+
+      <div class="hw-field" id="ban-reason-field">
+        <label for="ban-reason">Indok <span id="ban-reason-opt">(opcionális)</span></label>
+        <textarea id="ban-reason" rows="3" placeholder="pl. sértő viselkedés a Group csevegésben"></textarea>
+      </div>
+
+      <button class="hw-solve ban-confirm-btn" id="ban-confirm">🚫 Kitiltás</button>
+      <div class="hw-status" id="ban-status" aria-live="polite"></div>
+    </div>
+  </div>
+
+  <!-- A beépített tudásbázis (knowledge*.js) MEGSZŰNT: mostantól mindenre a böngészős
+       AI-modell válaszol, és ha kell, az internetről néz utána (pl. közszereplők). -->
+  <script src="homework.js?v=2.2.3"></script>
+  <script src="ai.js?v=2.2.3"></script>
+  <script src="auth.js?v=2.2.3"></script>
+  <script src="group.js?v=2.2.3"></script>
+  <script src="app.js?v=2.2.3"></script>
+</body>
+</html>
