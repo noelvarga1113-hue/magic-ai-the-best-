@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="hu">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, viewport-fit=cover">
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+  <meta http-equiv="Pragma" content="no-cache">
+  <meta http-equiv="Expires" content="0">
+  <meta name="theme-color" content="#05030f">
+  <title>Magic AI 3.0 🔮 – Jósgömb</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="orb.css?v=3.0.5">
+</head>
+<body>
+
+  <!-- kozmikus háttér -->
+  <div class="space" aria-hidden="true"></div>
+
+  <!-- a színpad: középen a jósgömb -->
+  <div class="stage">
+    <div class="orb-system" id="orb-system">
+      <div class="orb-aura"></div>
+      <div class="orb-ring"></div>
+
+      <!-- a keringő YouTube-videók ide kerülnek -->
+      <div class="orbit-layer" id="orbit-layer"></div>
+
+      <div class="orb-stand"></div>
+
+      <div class="orb" id="orb" role="button" tabindex="0" aria-label="Jósgömb – koppints a beszédhez">
+        <canvas id="orb-canvas"></canvas>
+        <div class="orb-haze"></div>
+        <div class="orb-core"></div>
+        <div class="orb-glass"></div>
+      </div>
+
+      <!-- sötét fátyol a gömb közepén, hogy a szöveg olvasható legyen -->
+      <div class="orb-scrim" aria-hidden="true"></div>
+      <!-- a válasz szövege a gömb KÖZEPÉBE kerül -->
+      <div class="orb-text" id="cap-bot" aria-live="polite"></div>
+
+      <!-- START: elindítja a beszélgetést – utána a gömb folyamatosan hallgat -->
+      <button class="orb-start" id="orb-start" type="button" aria-label="Beszélgetés indítása">
+        <span class="os-ico">▶</span><span class="os-txt">Start</span>
+      </button>
+      <!-- STOP: a beszélgetés befejezése -->
+      <button class="orb-stop" id="orb-stop" type="button" hidden aria-label="Beszélgetés befejezése">
+        <span class="os-ico">⏹</span><span class="os-txt">Stop</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- állapot-csip (modell betöltése, hallgatlak, gondolkodom…) -->
+  <div class="status-chip" id="status-chip" aria-live="polite">
+    <span class="dot"></span>
+    <span class="txt" id="status-txt"></span>
+    <span class="bar" id="status-bar" hidden><i id="status-bar-fill"></i></span>
+  </div>
+
+  <!-- a felhasználó kérdése (a válasz a gömb közepén jelenik meg) -->
+  <div class="caption">
+    <div class="cap-user" id="cap-user"></div>
+  </div>
+
+  <!-- beírható kérdés (mikrofon nélkül is használható) -->
+  <form class="ask-bar" id="ask-bar" autocomplete="off">
+    <input type="text" id="ask-input" placeholder="Írd be a kérdésed, vagy nyomd meg a Startot és beszélj…" aria-label="Kérdés">
+    <button type="submit" id="ask-send" aria-label="Küldés">➜</button>
+  </form>
+
+  <!-- alsó súgó -->
+  <div class="hint" id="hint">
+    <span class="mic">🎙️</span>
+    <span id="hint-txt">Nyomd meg a Start gombot, és beszélgess velem</span>
+  </div>
+
+  <!-- beállítás gomb -->
+  <button class="gear" id="gear" title="Beállítások" aria-label="Beállítások">⚙️</button>
+
+  <!-- beállítás panel -->
+  <div class="panel" id="panel" aria-modal="true" role="dialog">
+    <div class="panel-back" id="panel-back"></div>
+    <div class="panel-card">
+      <button class="panel-x" id="panel-x" aria-label="Bezárás">✕</button>
+      <h2>🔮 <span id="t-settings">Jósgömb beállítások</span></h2>
+      <p class="sub" id="t-settings-sub">Minden helyben fut, a böngésződben – a gondolkodás, a hang és a hallás is.</p>
+
+      <div class="pgroup">
+        <label id="t-lang">🌐 Nyelv / Language</label>
+        <select id="lang-select" class="p-select">
+          <option value="hu">🇭🇺 Magyar</option>
+          <option value="en">🇬🇧 English</option>
+          <option value="de">🇩🇪 Deutsch</option>
+          <option value="ru">🇷🇺 Русский</option>
+          <option value="pt">🇵🇹 Português</option>
+          <option value="es">🇪🇸 Español</option>
+          <option value="fr">🇫🇷 Français</option>
+          <option value="it">🇮🇹 Italiano</option>
+        </select>
+      </div>
+
+      <div class="pgroup">
+        <label id="t-model">🧠 AI-modell</label>
+        <select id="model-select" class="p-select"></select>
+        <button class="p-btn" id="model-load" type="button">⬇️ Modell betöltése</button>
+        <div class="p-bar" id="model-bar" hidden><i id="model-bar-fill"></i></div>
+        <div class="p-status" id="model-status"></div>
+        <p class="p-note" id="t-model-note">A korábban használt modell induláskor magától betöltődik. Hanggal is kérheted: „tölts be egy modellt”, „expert modell”, „gyors modell”.</p>
+      </div>
+
+      <div class="pgroup">
+        <div class="p-row">
+          <span id="t-voice">🔊 Hangos válasz</span>
+          <label class="switch"><input type="checkbox" id="voice-toggle" checked><span class="sl"></span></label>
+        </div>
+        <div class="p-subgroup" id="neural-voice-group">
+          <div class="p-row">
+            <span id="t-neural">✨ Saját, egyedi hang (neurális)</span>
+            <label class="switch"><input type="checkbox" id="neural-toggle"><span class="sl"></span></label>
+          </div>
+          <button class="p-btn" id="neural-load" type="button">⬇️ Saját hang letöltése</button>
+          <div class="p-bar" id="neural-bar" hidden><i id="neural-bar-fill"></i></div>
+          <div class="p-status" id="neural-status"></div>
+          <p class="p-note" id="t-neural-note">Ez a Magic AI saját, egyedi hangja – minden gépen UGYANAZ. Egyszer letölt egy kis hangmodellt a böngésződbe (nyelvenként), utána offline is ezen a hangon szól. Amíg nincs letöltve, a legszebb rendszerhang szólal meg.</p>
+        </div>
+        <div class="p-subgroup" id="voice-pick-group">
+          <label id="t-voice-pick">🎙️ Rendszerhang (tartalék)</label>
+          <select id="voice-select" class="p-select"></select>
+          <p class="p-note" id="t-voice-note">Ezt csak akkor használja, ha a saját neurális hang nincs letöltve. A legszebb rendszerhangot a Windows „Natural / Online” csomagjai adják (Gépház → Kisegítő lehetőségek → Beszéd), vagy nyisd meg Microsoft Edge-ben.</p>
+        </div>
+        <div class="p-row">
+          <span id="t-eco">🔋 Energiatakarékos mód</span>
+          <label class="switch"><input type="checkbox" id="eco-toggle"><span class="sl"></span></label>
+        </div>
+      </div>
+
+      <div class="pgroup">
+        <div class="p-row">
+          <span id="t-ears">👂 Beépített hallás (helyi felismerés)</span>
+          <label class="switch"><input type="checkbox" id="ears-toggle" checked><span class="sl"></span></label>
+        </div>
+        <select id="ears-select" class="p-select"></select>
+        <button class="p-btn" id="ears-load" type="button">⬇️ Hallás letöltése</button>
+        <div class="p-bar" id="ears-bar" hidden><i id="ears-bar-fill"></i></div>
+        <div class="p-status" id="ears-status"></div>
+        <p class="p-note" id="t-ears-note">Ezzel a Magic AI a SAJÁT fülével ért: a felismerés helyben, a gépeden fut (Whisper-modell). Egyszer letölt, utána offline is megy, minden nyelven, minden böngészőben. Amíg nincs letöltve, a böngésző beszédfelismerőjét használja – az böngészőfüggő, ahhoz Chrome ajánlott.</p>
+      </div>
+
+      <div class="pgroup">
+        <a class="p-link" href="index.html" id="t-classic">🖥️ Vissza a fő felületre (chat, fiók, csoport, házi feladat) →</a>
+        <p class="p-note" id="t-classic-note">A teljes Magic AI minden funkciója itt érhető el – ez a fő felület.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- YouTube lejátszó overlay -->
+  <div class="yt-player" id="yt-player">
+    <div class="yt-player-back" id="yt-player-back"></div>
+    <div class="yt-player-box">
+      <button class="yt-player-x" id="yt-player-x" aria-label="Bezárás">✕</button>
+      <div id="yt-player-mount"></div>
+    </div>
+  </div>
+
+  <!-- az AI-motor változatlan; a jósgömb-logika az orb.js-ben van -->
+  <script src="ai.js?v=3.4"></script>
+  <script src="voice.js?v=3.0.5"></script>
+  <script src="stt.js?v=3.0.6"></script>
+  <script src="orb.js?v=3.0.6"></script>
+</body>
+</html>

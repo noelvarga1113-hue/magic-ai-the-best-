@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="hu">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+  <meta http-equiv="Pragma" content="no-cache">
+  <meta http-equiv="Expires" content="0">
+  <title>Magic AI – Csoport 👥</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css?v=3.4">
+</head>
+<body class="gc-window">
+
+  <header class="gcw-head">
+    <div class="gcw-title">👥 Magic AI – Csoport</div>
+    <button id="gcw-close" class="gcw-x" title="Ablak bezárása">✕</button>
+  </header>
+
+  <!-- LOBBI: LÉTREHOZÁS / CSATLAKOZÁS -->
+  <section id="gcw-setup" class="gcw-setup">
+    <div class="gcw-tabs">
+      <button class="gcw-tab active" data-mode="create" type="button">✨ Lobbi létrehozása</button>
+      <button class="gcw-tab" data-mode="join" type="button">🚪 Csatlakozás</button>
+    </div>
+
+    <div class="gcw-field">
+      <label for="gcw-name">A neved (ezt látják a többiek)</label>
+      <input id="gcw-name" type="text" placeholder="pl. Kovács Anna" autocomplete="off">
+    </div>
+
+    <div class="gcw-field" id="gcw-code-field" hidden>
+      <label for="gcw-code">Lobbi kód</label>
+      <input id="gcw-code" type="text" placeholder="pl. 7K3PQ2" maxlength="10" autocomplete="off" autocapitalize="characters">
+    </div>
+
+    <button id="gcw-go" class="gcw-btn" type="button">✨ Lobbi létrehozása</button>
+    <div id="gcw-msg" class="gcw-msg"></div>
+
+    <p class="gcw-note">
+      A lobbiban <strong>az AI-tól kérdeztek</strong> – mindenki látja a kérdéseket és a válaszokat,
+      de egymásnak nem írtok. Az üzeneteket egy ingyenes, nyilvános szolgáltatás (ntfy.sh) továbbítja,
+      ezért <strong>ne küldj benne érzékeny adatot</strong>.
+    </p>
+  </section>
+
+  <!-- CHAT -->
+  <section id="gcw-chat" class="gcw-chat" hidden>
+    <div class="gcw-room">
+      <div class="gcw-room-info">
+        <span class="gcw-room-name"></span>
+        <button id="gcw-copy" class="gcw-copy" type="button" title="Lobbi kód másolása">📋 <span class="gcw-code-txt"></span></button>
+      </div>
+      <button id="gcw-leave" class="gcw-leave" type="button">Kilépés</button>
+    </div>
+    <div id="gc-messages" class="gc-messages gcw-messages"></div>
+    <div class="gc-input">
+      <textarea id="gc-text" rows="1" placeholder="Kérdezz az AI-tól… (Enter = küldés)"></textarea>
+      <button id="gc-send" type="button" title="Küldés">➤</button>
+    </div>
+  </section>
+
+  <script src="group-window.js?v=2.1.4"></script>
+</body>
+</html>
